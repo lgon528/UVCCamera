@@ -23,7 +23,7 @@
 
 include ':libuvccamera'
 include ':usbCameraCommon'
-include ':usbCameraTest'
+include ':usbCameraTest1'
 include ':usbCameraTest0'
 include ':usbCameraTest2'
 include ':usbCameraTest3'

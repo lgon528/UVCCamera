@@ -1,0 +1,72 @@
+UsbDevice[
+    mName=/dev/bus/usb/001/002,
+    mVendorId=3034,
+    mProductId=22565,
+    mClass=239, // Miscellaneous Device
+    mSubclass=2,
+    mProtocol=1,
+    mManufacturerName=Generic,
+    mProductName=Lanseyaoji,
+    mVersion=2.16,
+    mSerialNumber=200901010001,
+    mConfigurations=[
+        UsbConfiguration[
+            mId=1,
+            mName=Lanseyaoji,
+            mAttributes=128,
+            mMaxPower=250,
+            mInterfaces=[
+                // video mClass=14
+                UsbInterface[mId=0,mAlternateSetting=0,mName=Lanseyaoji,mClass=14,mSubclass=1,mProtocol=0,mEndpoints=[
+                    UsbEndpoint[mAddress=131,mAttributes=3,mMaxPacketSize=16,mInterval=6]
+                ]
+                UsbInterface[mId=1,mAlternateSetting=0,mName=null,mClass=14,mSubclass=2,mProtocol=0,mEndpoints=[]
+                UsbInterface[mId=1,mAlternateSetting=1,mName=null,mClass=14,mSubclass=2,mProtocol=0,mEndpoints=[
+                    UsbEndpoint[mAddress=129,mAttributes=5,mMaxPacketSize=128,mInterval=1]
+                ]
+                UsbInterface[mId=1,mAlternateSetting=2,mName=null,mClass=14,mSubclass=2,mProtocol=0,mEndpoints=[
+                    UsbEndpoint[mAddress=129,mAttributes=5,mMaxPacketSize=512,mInterval=1]
+                ]
+                UsbInterface[mId=1,mAlternateSetting=3,mName=null,mClass=14,mSubclass=2,mProtocol=0,mEndpoints=[
+                    UsbEndpoint[mAddress=129,mAttributes=5,mMaxPacketSize=1024,mInterval=1]
+                ]
+                UsbInterface[mId=1,mAlternateSetting=4,mName=null,mClass=14,mSubclass=2,mProtocol=0,mEndpoints=[
+                    UsbEndpoint[mAddress=129,mAttributes=5,mMaxPacketSize=2816,mInterval=1]
+                ]
+                UsbInterface[mId=1,mAlternateSetting=5,mName=null,mClass=14,mSubclass=2,mProtocol=0,mEndpoints=[
+                    UsbEndpoint[mAddress=129,mAttributes=5,mMaxPacketSize=3072,mInterval=1]
+                ]
+                UsbInterface[mId=1,mAlternateSetting=6,mName=null,mClass=14,mSubclass=2,mProtocol=0,mEndpoints=[
+                    UsbEndpoint[mAddress=129,mAttributes=5,mMaxPacketSize=4992,mInterval=1]
+                ]
+                UsbInterface[mId=1,mAlternateSetting=7,mName=null,mClass=14,mSubclass=2,mProtocol=0,mEndpoints=[
+                    UsbEndpoint[mAddress=129,mAttributes=5,mMaxPacketSize=5120,mInterval=1]
+                ]
+
+                //audio mClass=1
+                UsbInterface[mId=2,mAlternateSetting=0,mName=Realtek USB MIC,mClass=1,mSubclass=1,mProtocol=0,mEndpoints=[]
+                UsbInterface[mId=3,mAlternateSetting=0,mName=null,mClass=1,mSubclass=2,mProtocol=0,mEndpoints=[]
+                UsbInterface[mId=3,mAlternateSetting=1,mName=null,mClass=1,mSubclass=2,mProtocol=0,mEndpoints=[
+                    UsbEndpoint[mAddress=130,mAttributes=5,mMaxPacketSize=40,mInterval=4]
+                ]
+                UsbInterface[mId=3,mAlternateSetting=2,mName=null,mClass=1,mSubclass=2,mProtocol=0,mEndpoints=[
+                    UsbEndpoint[mAddress=130,mAttributes=5,mMaxPacketSize=72,mInterval=4]
+                ]
+                UsbInterface[mId=3,mAlternateSetting=3,mName=null,mClass=1,mSubclass=2,mProtocol=0,mEndpoints=[
+                    UsbEndpoint[mAddress=130,mAttributes=5,mMaxPacketSize=200,mInterval=4]
+                ]
+                UsbInterface[mId=3,mAlternateSetting=4,mName=null,mClass=1,mSubclass=2,mProtocol=0,mEndpoints=[
+                    UsbEndpoint[mAddress=130,mAttributes=5,mMaxPacketSize=216,mInterval=4]
+                ]
+                UsbInterface[mId=3,mAlternateSetting=5,mName=null,mClass=1,mSubclass=2,mProtocol=0,mEndpoints=[
+                    UsbEndpoint[mAddress=130,mAttributes=5,mMaxPacketSize=60,mInterval=4]
+                ]
+                UsbInterface[mId=3,mAlternateSetting=6,mName=null,mClass=1,mSubclass=2,mProtocol=0,mEndpoints=[
+                    UsbEndpoint[mAddress=130,mAttributes=5,mMaxPacketSize=120,mInterval=4]
+                ]
+                UsbInterface[mId=3,mAlternateSetting=7,mName=null,mClass=1,mSubclass=2,mProtocol=0,mEndpoints=[
+                    UsbEndpoint[mAddress=130,mAttributes=5,mMaxPacketSize=288,mInterval=4]
+                ]
+                UsbInterface[mId=3,mAlternateSetting=8,mName=null,mClass=1,mSubclass=2,mProtocol=0,mEndpoints=[
+                    UsbEndpoint[mAddress=130,mAttributes=5,mMaxPacketSize=336,mInterval=4]
+                ]]]

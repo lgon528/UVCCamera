@@ -1,0 +1,31 @@
+UsbDevice[
+    mName=/dev/bus/usb/001/002,
+    mVendorId=7758,
+    mProductId=28930,
+    mClass=239, // Miscellaneous Device
+    mSubclass=2,
+    mProtocol=1,
+    mManufacturerName=eEver,
+    mProductName=Live Streaming USB Device,
+    mVersion=2.16,
+    mSerialNumber=20000130041415,
+    mConfigurations=[
+        UsbConfiguration[
+            mId=1,
+            mName=null,
+            mAttributes=160,
+            mMaxPower=75,
+            mInterfaces=[
+                // video mClass=14
+                UsbInterface[mId=0,mAlternateSetting=0,mName=Live Streaming Video Device,mClass=14,mSubclass=1,mProtocol=0,mEndpoints=[]
+                UsbInterface[mId=1,mAlternateSetting=0,mName=Live Streaming Video Device,mClass=14,mSubclass=2,mProtocol=0,mEndpoints=[]
+                UsbInterface[mId=1,mAlternateSetting=1,mName=Live Streaming Video Device,mClass=14,mSubclass=2,mProtocol=0,mEndpoints=[
+                    UsbEndpoint[mAddress=137,mAttributes=5,mMaxPacketSize=5120,mInterval=1]
+                ]
+
+                // audio mClass=1
+                UsbInterface[mId=2,mAlternateSetting=0,mName=Live Streaming Audio Device,mClass=1,mSubclass=1,mProtocol=0,mEndpoints=[]
+                UsbInterface[mId=3,mAlternateSetting=0,mName=Live Streaming Audio Device,mClass=1,mSubclass=2,mProtocol=0,mEndpoints=[]
+                UsbInterface[mId=3,mAlternateSetting=1,mName=Live Streaming Audio Device,mClass=1,mSubclass=2,mProtocol=0,mEndpoints=[
+                    UsbEndpoint[mAddress=138,mAttributes=5,mMaxPacketSize=192,mInterval=4]
+                ]]]
