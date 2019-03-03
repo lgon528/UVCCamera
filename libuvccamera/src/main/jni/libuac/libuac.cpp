@@ -6,6 +6,7 @@
 #include "../utilbase.h"
 #include "../libusb/libusb/libusb.h"
 #include <string>
+#include <stdlib.h>
 
 namespace libuac {
 
