@@ -11,64 +11,60 @@ public class UACAudio {
     private static final String TAG = UACAudio.class.getSimpleName();
 
     static {
-        System.loadLibrary("uacaudio");
+        System.loadLibrary("uac");
     }
 
+    private long cptr;
     private USBMonitor.UsbControlBlock mCtrBlock;
 
-    /**
-     * open uacaudio
-     * @param ctrlBlock
-     * @return
-     */
-    public synchronized int open(final USBMonitor.UsbControlBlock ctrlBlock) {
-        mCtrBlock = ctrlBlock;
+    public UACAudio(USBMonitor.UsbControlBlock ctrBlock) {
+        mCtrBlock = ctrBlock;
+    }
+
+    public synchronized int init(){
+        Log.d(TAG, "init");
+        int ret = nativeInit();
+        if(ret != 0) {
+            Log.e(TAG, "libuac init failed");
+            return ret;
+        }
+
+        cptr = nativeGetDevice(mCtrBlock.getVenderId(), mCtrBlock.getProductId(),
+                mCtrBlock.getFileDescriptor(), mCtrBlock.getSerial());
+
+        if(cptr == 0) {
+            Log.e(TAG, "libuac device not found");
+            return -1;
+        }
+
         return 0;
     }
 
-    public native int setup();
-    public native void close();
-    public native void loop();
-    public native boolean stop();
-    public native int measure();
-    public native String hellow();
-
-    private boolean isRecord;
-    public int startRecord(){
-        if (isRecord){
-            return 0;
-        }
-        int result = setup();
-        if (result >= 0) {
-            isRecord = true;
-            new Thread(new Runnable() {
-                public void run() {
-                    loop();
-                }
-            }).start();
-            return result;
-        }else{
-
-            return result;
-        }
+    public synchronized int open() {
+        Log.d(TAG, "open device");
+        return nativeOpenDevice(cptr);
     }
 
-    public void stopRecord(){
-        Log.d(TAG, "Stop pressed");
-        isRecord = false;
-        stop();
-        Handler h = new Handler();
-        h.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                if (!isRecord) {
-                    close();
-                }
-            }
-        }, 100);
+
+    public synchronized int startRecord(String path) {
+        Log.d(TAG, "startRecord");
+        return nativeStartRecord(cptr, path);
     }
 
-    public boolean isRecord() {
-        return isRecord;
+    public synchronized int stopRecord() {
+        Log.d(TAG, "stopRecord");
+        return nativeStopRecord(cptr);
     }
+
+    public synchronized void setAudioStreamCallback(IAudioStreamCallback cb) {
+        Log.d(TAG, "setAudioStreamCallback, cb: " + cb);
+        nativeSetAudioStreamCallback(cptr, cb);
+    }
+
+    private native int nativeInit();
+    private native long nativeGetDevice(int vid, int pid, int fd, String sn);
+    private native int nativeOpenDevice(long devPtr);
+    private native int nativeStartRecord(long devPtr, String path);
+    private native int nativeStopRecord(long devPtr);
+    private native void nativeSetAudioStreamCallback(long devPtr, IAudioStreamCallback cb);
 }

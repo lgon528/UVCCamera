@@ -1,8 +1,11 @@
 #include "jni.h"
 
 #include "libuac.h"
+#include "audio_stream_callback_jni.h"
+#include "jni_helper.h"
+#include "utilbase.h"
 
-
+using namespace libuac;
 
 
 /**
@@ -13,37 +16,62 @@ static jint nativeInit(JNIEnv *env, jobject thiz) {
 }
 
 static jlong nativeGetDevice(JNIEnv *env, jobject thiz, jint vid, jint pid, jint fd, jstring sn) {
-    std::string sn_str(ScopedJString(env, fs).GetChar());
-    return UACContext::getInstance().findDevice(vid, pid, sn, fd).get();
+    std::string snStr(ScopedJString(env, sn).GetChar());
+    return (jlong)(void*)UACContext::getInstance().findDevice(vid, pid, snStr, fd).get();
 }
 
-static jint nativeOpenDevice(JNIEnv *env, jobject thiz, jlong devicePtr) {
-    UACDevice *device = reinterpret_cast<UACDevice*>(devicePtr);
-
+static jint nativeOpenDevice(JNIEnv *env, jobject thiz, jlong devPtr) {
+    UACDevice *device = reinterpret_cast<UACDevice*>(devPtr);
+    return device->open();
 }
 
+static jint nativeStartRecord(JNIEnv *env, jobject thiz, jlong devPtr, jstring path) {
+    UACDevice *device = reinterpret_cast<UACDevice*>(devPtr);
 
-const static std::string gClassName = ""; // todo package/class name
+    std::string pathStr(ScopedJString(env, path).GetChar());
+    return device->startRecord(pathStr);
+}
+
+static jint nativeStopRecord(JNIEnv *env, jobject thiz, jlong devPtr) {
+    UACDevice *device = reinterpret_cast<UACDevice*>(devPtr);
+    return device->stopRecord();
+}
+
+static void nativeSetAudioStreamCallback(JNIEnv *env, jobject thiz, jlong devPtr, jobject callbackObj) {
+    UACDevice *device = reinterpret_cast<UACDevice*>(devPtr);
+
+    device->setAudioStreamCallback(std::shared_ptr<IAudioStreamCallbackJni>(new IAudioStreamCallbackJni(callbackObj)));
+}
+
+const static std::string gClassName = "com/serenegiant/usb/UACAudio";
 const static JNINativeMethod methods[] = {
     {"nativeInit", "()I", (void*) nativeInit},
     {"nativeGetDevice", "(IIILjava/lang/String;)J", (void*)nativeGetDevice},
-    {"nativeOpenDevice", "(J)I", (void*)nativeOpenDevice}
+    {"nativeOpenDevice", "(J)I", (void*)nativeOpenDevice},
+    {"nativeStartRecord", "(JLjava/lang/String;)I", (void*)nativeStartRecord},
+    {"nativeStopRecord", "(J)I", (void*)nativeStopRecord},
+    {"nativeSetAudioStreamCallback", "(JLcom/serenegiant/usb/IAudioStreamCallback;)V", (void*)nativeSetAudioStreamCallback}
 };
 
-jint registerNativeMethods(JNIEnv* env) {
+static int registerNativeMethods(JNIEnv *env) {
 	int result = 0;
 
-	jclass clazz = env->FindClass(class_name);
-	if (LIKELY(clazz)) {
-		int result = env->RegisterNatives(clazz, methods, num_methods);
-		if (UNLIKELY(result < 0)) {
-			LOGE("registerNativeMethods failed(class=%s)", class_name);
+	jclass clazz = env->FindClass(gClassName.c_str());
+	if (clazz) {
+		int result = env->RegisterNatives(clazz, methods, sizeof(methods)/sizeof(JNINativeMethod));
+		if (result < 0) {
+			LOGE("registerNativeMethods failed(class=%s)", gClassName.c_str());
 		}
 	} else {
-		LOGE("registerNativeMethods: class'%s' not found", class_name);
+		LOGE("registerNativeMethods: class'%s' not found", gClassName.c_str());
 	}
 	return result;
 }
+
+static void initIDs(JNIEnv *env) {
+    IAudioStreamCallbackJni::initIDs(env);
+}
+
 
 
 extern "C"

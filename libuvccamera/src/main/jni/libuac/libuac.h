@@ -11,45 +11,54 @@
 
 namespace libuac {
 
+typedef std::string Bytes;
+
 class UACInterface {
 public:
     uint8_t intfIdx_;
     uint8_t endpointAddr_;
+    size_t maxPackageSize_;
 
 public:
     int claim(libusb_device_handle *devHandle);
 };
 
-class UACDevice {
+class IAudioStreamCallback {
+public:
+    virtual void onStreaming(Bytes data) = 0;
+};
 
-std::function<void(std::string data)> callback;
+class UACDevice {
 
 public:
     int open();
-    int startRecord();
+    int startRecord(std::string path);
     int stopRecord();
     int close();
-    void setCallback();
+    void setAudioStreamCallback(std::shared_ptr<IAudioStreamCallback> cb);
 
 private:
-    void scanControlInterface();
-    void scanAudioInterface();
-    int startStreaming();
-    int stopStreaming();
+    void _scanControlInterface();
+    void _scanAudioInterface();
+    int _startStreaming();
+    int _stopStreaming();
+    void _transfer();
 
 public:
-    int vendorId_;
+    int venderId_;
     int productId_;
 
     bool isOpened_;
     bool isRecording_;
+    std::string recordFilePath_;
+    std::shared_ptr<IAudioStreamCallback> frameCallback_;
 
     libusb_device *usbDevice_;
     libusb_device_handle *usbDeviceHandle_;
     libusb_config_descriptor *config_;
     std::string deviceName_;
-    std::shared_ptr<UACInterface> controlInterface_;
-    std::vector<std::shared_ptr<UACInterface>> streamInterfaces_;
+    std::shared_ptr<UACInterface> ctrlIf_;
+    std::vector<std::shared_ptr<UACInterface>> streamIfs_;
 };
 
 

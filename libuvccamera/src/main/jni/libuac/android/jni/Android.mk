@@ -8,13 +8,15 @@ include $(CLEAR_VARS)
 
 LOCAL_C_INCLUDES := \
 		$(LOCAL_PATH)/ \
-		$(LOCAL_PATH)/../
+		$(LOCAL_PATH)/../../ \
+		$(LOCAL_PATH)/../../../
 
 LOCAL_CFLAGS := -std=c++11
 LOCAL_SHARED_LIBRARIES := usb100
 LOCAL_LDLIBS := -llog
 LOCAL_SRC_FILES := libuac_jni.cpp \
 					jni_helper.cpp \
+					audio_stream_callback_jni.cpp \
 					../../libuac.cpp 
 
 LOCAL_MODULE	:= uac
