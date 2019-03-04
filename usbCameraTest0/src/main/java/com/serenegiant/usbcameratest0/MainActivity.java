@@ -36,6 +36,8 @@ import android.widget.Toast;
 
 import com.serenegiant.common.BaseActivity;
 import com.serenegiant.usb.CameraDialog;
+import com.serenegiant.usb.IAudioStreamCallback;
+import com.serenegiant.usb.UACAudio;
 import com.serenegiant.usb.USBMonitor;
 import com.serenegiant.usb.USBMonitor.OnDeviceConnectListener;
 import com.serenegiant.usb.USBMonitor.UsbControlBlock;
@@ -169,6 +171,24 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 						synchronized (mSync) {
 							mUVCCamera = camera;
 						}
+
+						UACAudio audio = new UACAudio(ctrlBlock);
+						int ret = audio.init();
+						if(ret != 0) {
+							Log.e(TAG, "init audio failed, ret: " + ret);
+							return;
+						}
+						ret = audio.open();
+						if(ret != 0) {
+							Log.e(TAG, "open audio failed, ret: " + ret);
+							return;
+						}
+						audio.setAudioStreamCallback(new IAudioStreamCallback() {
+							@Override
+							public void onStreaming(byte[] data) {
+								Log.i(TAG, "onStreaming, size: " + data.length);
+							}
+						});
 					}
 				}
 			}, 0);

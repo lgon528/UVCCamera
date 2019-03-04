@@ -12,6 +12,8 @@ LOCAL_C_INCLUDES := \
 		$(LOCAL_PATH)/../../../
 
 LOCAL_CFLAGS := -std=c++11
+LOCAL_CFLAGS += -DUSE_LOGALL
+
 LOCAL_SHARED_LIBRARIES := usb100
 LOCAL_LDLIBS := -llog
 LOCAL_SRC_FILES := libuac_jni.cpp \

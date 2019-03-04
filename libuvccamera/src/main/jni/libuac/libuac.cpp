@@ -34,30 +34,34 @@ int UACContext::unInit() {
     return 0;
 }
 
-std::shared_ptr<UACDevice> UACContext::findDevice(const int vid, const int pid, const std::string sn, int fd) {
+std::shared_ptr<UACDevice> UACContext::findDevice(const int vid, const int pid, const std::string sn, int fd, int busnum, int devaddr) {
     std::shared_ptr<UACDevice> device;
     if(!usbContext_) {
         LOGE("uac context not init yet");
         return device;
     }
 
+    LOGE("we're here");
     for(auto it = devices_.begin(); it != devices_.end(); it++) {
         if((*it)->venderId_ == vid && (*it)->productId_ == pid) {
             return *it;
         }
     }
     
-    libusb_device *usbDevice = libusb_find_device(usbContext_, vid, pid, sn.c_str(), fd);
+    LOGE("we're here");
+    libusb_device *usbDevice = libusb_get_device_with_fd(usbContext_, vid, pid, sn.c_str(), fd, busnum, devaddr);
     if(usbDevice){
         libusb_set_device_fd(usbDevice, fd);  // assign fd to libusb_device for non-rooted Android devices
         libusb_ref_device(usbDevice);
 
+        device.reset(new UACDevice());
         device->usbDevice_ = usbDevice;
         device->venderId_ = vid;
         device->productId_ = pid;
 
         devices_.push_back(device);
     }
+    LOGE("we're here");
 
     return device;
 }
@@ -75,7 +79,7 @@ int UACInterface::claim(libusb_device_handle *handle) {
         if(libusb_detach_kernel_driver(handle, intfIdx_) == 0) //detach it  
             LOGD("Kernel Driver Detached!");  
     }  
-    LOGD("kernel detach errno:%d", errno);
+    LOGD("kernel detach errno:%d, %s", errno, strerror(errno));
 
     r = libusb_claim_interface(handle, intfIdx_);            //claim interface 0 (the first) of device (mine had jsut 1)  
     if(r != 0) {  
@@ -115,6 +119,12 @@ int UACDevice::open() {
         return ret;
     }
 
+    // ret = libusb_set_configuration(usbDeviceHandle_, config_->bConfigurationValue);
+    // if(ret != 0) {
+    //     LOGE("libusb_set_configuration failed, ret %d(%s)", ret, libusb_error_name(ret));
+    //     return ret;
+    // }
+
     // scan control interface
     _scanControlInterface();
 
@@ -133,21 +143,31 @@ void UACDevice::_scanControlInterface() {
     auto cnt = config_->bNumInterfaces;
     if(cnt > 0) {
         for(int interfaceIdx = 0; interfaceIdx < cnt; interfaceIdx++) {
-            const libusb_interface_descriptor *ifDescr = &config_->interface[interfaceIdx].altsetting[0];
+            auto num_altsetting = config_->interface[interfaceIdx].num_altsetting;
 
-            LOGD("inteface:[intfIdx:%d, altsetting:%d, epNums:%d, class:%d, subClass:%d, protocol:%d]", 
-                        ifDescr->bInterfaceNumber, ifDescr->bAlternateSetting, ifDescr->bNumEndpoints, 
-                        ifDescr->bInterfaceClass, ifDescr->bInterfaceSubClass, ifDescr->bInterfaceProtocol);
-            if(ifDescr->bInterfaceClass == LIBUSB_CLASS_AUDIO && ifDescr->bInterfaceSubClass == 0x1) { // audio, control
-                ctrlIf_.reset(new UACInterface);
-                ctrlIf_->intfIdx_ = ifDescr->bInterfaceNumber;
-                if(ifDescr->endpoint) {
-                    ctrlIf_->endpointAddr_ = ifDescr->endpoint->bEndpointAddress;
+            LOGE("we're here, num_altsetting: %d", cnt);
+            for(int settingIdx = 0; settingIdx < num_altsetting; settingIdx++) {
+
+                const libusb_interface_descriptor *ifDescr = &config_->interface[interfaceIdx].altsetting[settingIdx];
+
+                LOGE("we're here, setting: len %d, type %d, ifNum %d, settingN %d, epNum %d, \
+                        class %d, subclass %d, proto %d, strIf %d, extLen %d", ifDescr->bLength,
+                        ifDescr->bDescriptorType, ifDescr->bInterfaceNumber, ifDescr->bAlternateSetting,
+                        ifDescr->bNumEndpoints, ifDescr->bInterfaceClass, ifDescr->bInterfaceSubClass,
+                        ifDescr->bInterfaceProtocol, ifDescr->iInterface, ifDescr->extra_length);
+
+                if(ifDescr->bInterfaceClass == LIBUSB_CLASS_AUDIO && ifDescr->bInterfaceSubClass == 0x1) { // audio, control
+                    ctrlIf_.reset(new UACInterface);
+                    ctrlIf_->altsettingIdx_ = ifDescr->b
+                    ctrlIf_->intfIdx_ = ifDescr->bInterfaceNumber;
+                    if(ifDescr->endpoint) {
+                        ctrlIf_->endpointAddr_ = ifDescr->endpoint->bEndpointAddress;
+                    }
+
+                    ctrlIf_->claim(usbDeviceHandle_);
+
+                    break;
                 }
-
-                ctrlIf_->claim(usbDeviceHandle_);
-
-                break;
             }
         }
     }
@@ -157,23 +177,43 @@ void UACDevice::_scanAudioInterface() {
 
     // find audio interface
     auto cnt = config_->bNumInterfaces;
+    LOGE("we're here, cnt: %d", cnt);
     if(cnt > 0) {
         for(int interfaceIdx = 0; interfaceIdx < cnt; interfaceIdx++) {
-            const libusb_interface_descriptor *ifDescr = &config_->interface[interfaceIdx].altsetting[0];
-            if(ifDescr->bInterfaceClass == LIBUSB_CLASS_AUDIO && ifDescr->bInterfaceSubClass == 0x2) { // audio, stream
-                // auto epCnt = ifDescr->bNumEndpoints;
-                // if(epCnt && ifDescr->endpoint) {
-                if(ifDescr->endpoint) {
-                    std::shared_ptr<UACInterface> interface = std::make_shared<UACInterface>();
-                    interface->intfIdx_ = ifDescr->bInterfaceNumber;
-                    interface->endpointAddr_ = ifDescr->endpoint->bEndpointAddress;
-                    interface->maxPackageSize_ = libusb_get_max_iso_packet_size(usbDevice_, interface->endpointAddr_);
-                    interface->claim(usbDeviceHandle_);
+            auto num_altsetting = config_->interface[interfaceIdx].num_altsetting;
 
-                    streamIfs_.push_back(interface);
+            LOGE("we're here, num_altsetting: %d", cnt);
+            for(int settingIdx = 0; settingIdx < num_altsetting; settingIdx++) {
+
+                const libusb_interface_descriptor *ifDescr = &config_->interface[interfaceIdx].altsetting[settingIdx];
+
+                LOGE("we're here, setting: len %d, type %d, ifNum %d, settingN %d, epNum %d, \
+                        class %d, subclass %d, proto %d, strIf %d, extLen %d, ep %p", ifDescr->bLength,
+                        ifDescr->bDescriptorType, ifDescr->bInterfaceNumber, ifDescr->bAlternateSetting,
+                        ifDescr->bNumEndpoints, ifDescr->bInterfaceClass, ifDescr->bInterfaceSubClass,
+                        ifDescr->bInterfaceProtocol, ifDescr->iInterface, ifDescr->extra_length, ifDescr->endpoint);
+
+                if(ifDescr->bInterfaceClass == LIBUSB_CLASS_AUDIO && ifDescr->bInterfaceSubClass == 0x2) { // audio, stream
+                    // auto epCnt = ifDescr->bNumEndpoints;
+                    // if(epCnt && ifDescr->endpoint) {
+                    if(ifDescr->endpoint) {
+                        std::shared_ptr<UACInterface> interface = std::make_shared<UACInterface>();
+                        interface->intfIdx_ = ifDescr->bInterfaceNumber;
+                        interface->endpointAddr_ = ifDescr->endpoint->bEndpointAddress;
+                        int maxSize = libusb_get_max_iso_packet_size(usbDevice_, interface->endpointAddr_);
+                        interface->maxPackageSize_ = maxSize > 0 ? maxSize : ifDescr->endpoint->wMaxPacketSize;
+
+                        interface->claim(usbDeviceHandle_);
+
+                        streamIfs_.push_back(interface);
+
+                        LOGD("we're here, ep maxPackageSize: %d, %d", interface->maxPackageSize_, ifDescr->endpoint->wMaxPacketSize);
+                    }
                 }
             }
         }
+    } else {
+    LOGE("we're here, no inteface");
     }
 }
 
@@ -181,6 +221,7 @@ void UACDevice::_scanAudioInterface() {
 int UACDevice::_startStreaming() {
     // transfer
     if(isOpened_) {
+        LOGE("we're here");
         _transfer();
     }
 
@@ -283,16 +324,26 @@ static void _stream_callback(libusb_transfer *transfer)
 }
 
 void UACDevice::_transfer() {
+        LOGE("we're here");
     // todo make a const
     const int LIBUAC_NUM_TRANSFER_BUFS = 10;
     int packets_per_transfer = 16;
 
+    LOGE("we're here, ifs size: %d", streamIfs_.size());
+    if(streamIfs_.size() <= 0){
+        LOGE("no valid interfaces");
+        return;
+    }
     uint8_t endpointAddress = streamIfs_[0]->endpointAddr_;
     size_t endpoint_bytes_per_packet = streamIfs_[0]->maxPackageSize_;
     size_t total_transfer_size = endpoint_bytes_per_packet * packets_per_transfer;
     libusb_transfer* transfers[LIBUAC_NUM_TRANSFER_BUFS];
     uint8_t* transfer_bufs[LIBUAC_NUM_TRANSFER_BUFS];
 
+    // todo select altenatesetting
+    //libusb_set_interface_alt_setting(usbDeviceHandle_, streamIfs_[0]->intfIdx_,
+
+        LOGE("we're here");
 
     LOGD("Set up the transfers\n");
 
@@ -304,6 +355,9 @@ void UACDevice::_transfer() {
         libusb_transfer *transfer = libusb_alloc_transfer(packets_per_transfer);
         transfers[transfer_id] = transfer;
         transfer_bufs[transfer_id] = (unsigned char *)malloc(total_transfer_size);
+        if(transfer_bufs[transfer_id] == nullptr) {
+            continue;
+        }
         memset(transfer_bufs[transfer_id], 0, total_transfer_size);
         libusb_fill_iso_transfer(transfer, usbDeviceHandle_,
             endpointAddress,
@@ -312,19 +366,23 @@ void UACDevice::_transfer() {
             (void *)this, 1000);
 
         libusb_set_iso_packet_lengths(transfer, endpoint_bytes_per_packet);
+
+        LOGD("fill transfer_id:%d finished\n", transfer_id);
         
     }
 
     LOGD("before submit errno:%d\n", errno);
+
     for (int transfer_id = 0; transfer_id < LIBUAC_NUM_TRANSFER_BUFS; transfer_id++) {
         LOGD("submit transfer_id:%d\n", transfer_id);
         auto ret = libusb_submit_transfer(transfers[transfer_id]);
         if (ret != 0) {
-            LOGE("libusb_submit_transfer failed: %d, errno:%d\n", ret, errno);
+            LOGE("libusb_submit_transfer failed: %d(%s), errno:%d\n", ret, libusb_error_name(ret), errno);
             break;
         }
         LOGD("submit transfer_id:%d finish\n", transfer_id);
     }
+
     LOGD("after submit errno:%d\n", errno);
 
 }

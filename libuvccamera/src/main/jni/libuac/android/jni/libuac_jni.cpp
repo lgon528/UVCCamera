@@ -15,9 +15,9 @@ static jint nativeInit(JNIEnv *env, jobject thiz) {
     return UACContext::getInstance().init();
 }
 
-static jlong nativeGetDevice(JNIEnv *env, jobject thiz, jint vid, jint pid, jint fd, jstring sn) {
+static jlong nativeGetDevice(JNIEnv *env, jobject thiz, jint vid, jint pid, jint fd, jstring sn, jint busnum, jint devaddr) {
     std::string snStr(ScopedJString(env, sn).GetChar());
-    return (jlong)(void*)UACContext::getInstance().findDevice(vid, pid, snStr, fd).get();
+    return (jlong)(void*)UACContext::getInstance().findDevice(vid, pid, snStr, fd, busnum, devaddr).get();
 }
 
 static jint nativeOpenDevice(JNIEnv *env, jobject thiz, jlong devPtr) {
@@ -46,7 +46,7 @@ static void nativeSetAudioStreamCallback(JNIEnv *env, jobject thiz, jlong devPtr
 const static std::string gClassName = "com/serenegiant/usb/UACAudio";
 const static JNINativeMethod methods[] = {
     {"nativeInit", "()I", (void*) nativeInit},
-    {"nativeGetDevice", "(IIILjava/lang/String;)J", (void*)nativeGetDevice},
+    {"nativeGetDevice", "(IIILjava/lang/String;II)J", (void*)nativeGetDevice},
     {"nativeOpenDevice", "(J)I", (void*)nativeOpenDevice},
     {"nativeStartRecord", "(JLjava/lang/String;)I", (void*)nativeStartRecord},
     {"nativeStopRecord", "(J)I", (void*)nativeStopRecord},

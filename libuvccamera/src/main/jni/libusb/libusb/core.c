@@ -27,7 +27,7 @@
 #define LOCAL_DEBUG 0
 
 #define LOG_TAG "libusb/core"
-#if 1	// デバッグ情報を出さない時1
+#if 0	// デバッグ情報を出さない時1
 	#ifndef LOG_NDEBUG
 		#define	LOG_NDEBUG		// LOGV/LOGD/MARKを出力しない時
 		#endif
@@ -1051,13 +1051,16 @@ int API_EXPORTED libusb_get_max_iso_packet_size(libusb_device *dev,
 	}
 
 	val = ep->wMaxPacketSize;
+	LOGE("we're here, maxPacketSize %d", val);
 	ep_type = (enum libusb_transfer_type) (ep->bmAttributes & 0x3);
 
 	r = val & 0x07ff;
+	LOGE("we're here, maxPacketSize %d", r);
 	if (ep_type == LIBUSB_TRANSFER_TYPE_ISOCHRONOUS
 			|| ep_type == LIBUSB_TRANSFER_TYPE_INTERRUPT)
 		r *= (1 + ((val >> 11) & 3));
 
+	LOGE("we're here, maxPacketSize %d", r);
 out:
 	libusb_free_config_descriptor(config);
 	return r;

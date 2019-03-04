@@ -15,6 +15,7 @@ typedef std::string Bytes;
 
 class UACInterface {
 public:
+    uint8_t altsettingIdx_;
     uint8_t intfIdx_;
     uint8_t endpointAddr_;
     size_t maxPackageSize_;
@@ -75,7 +76,8 @@ public:
 
     int init();
     int unInit();
-    std::shared_ptr<UACDevice> findDevice(const int vid, const int pid, const std::string sn, int fd);
+    std::shared_ptr<UACDevice> findDevice(const int vid, const int pid, 
+                        const std::string sn, int fd, int busnum, int devaddr);
     std::vector<std::shared_ptr<UACDevice>> getDevices();
 
 private:

@@ -50,6 +50,10 @@ android {
 			jni.srcDirs = []
 		}
 	}
+
+	packagingOptions {
+		doNotStrip ''
+	}
 }
 
 tasks.withType(JavaCompile) {

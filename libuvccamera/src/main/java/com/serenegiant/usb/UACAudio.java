@@ -30,7 +30,8 @@ public class UACAudio {
         }
 
         cptr = nativeGetDevice(mCtrBlock.getVenderId(), mCtrBlock.getProductId(),
-                mCtrBlock.getFileDescriptor(), mCtrBlock.getSerial());
+                mCtrBlock.getFileDescriptor(), mCtrBlock.getSerial(),
+                mCtrBlock.getBusNum(), mCtrBlock.getDevNum());
 
         if(cptr == 0) {
             Log.e(TAG, "libuac device not found");
@@ -62,7 +63,7 @@ public class UACAudio {
     }
 
     private native int nativeInit();
-    private native long nativeGetDevice(int vid, int pid, int fd, String sn);
+    private native long nativeGetDevice(int vid, int pid, int fd, String sn, int busnum, int devaddr);
     private native int nativeOpenDevice(long devPtr);
     private native int nativeStartRecord(long devPtr, String path);
     private native int nativeStopRecord(long devPtr);
