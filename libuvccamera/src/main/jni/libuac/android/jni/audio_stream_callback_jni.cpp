@@ -38,7 +38,7 @@ namespace libuac {
         jcls_ = (jclass)env->NewGlobalRef(cls);
 
         jmethodID jmethod = nullptr;
-        jmethod = env->GetMethodID(jcls_, "onStreaming", "(B)V");
+        jmethod = env->GetMethodID(jcls_, "onStreaming", "([B)V");
         if(jmethod == nullptr){
             LOGE("JNI Error!! IAudioStreamCallback onStreaming not found");
             return false;
@@ -50,10 +50,13 @@ namespace libuac {
 
 
     void IAudioStreamCallbackJni::onStreaming(Bytes data) {
-        ScopedJEnv scopedJEnv;
-        auto env = scopedJEnv.GetEnv();
+        LOGD("begin to callback onStreaming, size: %d", data.size());
+        if(cbObj_ != nullptr) {
+            ScopedJEnv scopedJEnv;
+            auto env = scopedJEnv.GetEnv();
 
-        ScopedByteArray scopedByteArray(env, data);
-        env->CallVoidMethod(cbObj_, methodIdMap_["onStreaming"], scopedByteArray.GetJArray());
+            ScopedByteArray scopedByteArray(env, data);
+            env->CallVoidMethod(cbObj_, methodIdMap_["onStreaming"], scopedByteArray.GetJArray());
+        }
     }
 }

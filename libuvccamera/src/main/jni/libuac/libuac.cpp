@@ -5,7 +5,10 @@
 #include "libuac.h"
 #include "../utilbase.h"
 #include "../libusb/libusb/libusb.h"
+#include "utils.h"
+
 #include <string>
+#include <sstream>
 #include <stdlib.h>
 
 namespace libuac {
@@ -17,19 +20,46 @@ int UACContext::init() {
         return ret;
     }
 
+    return 0;
+}
+
+bool UACContext::isAnyDeviceOpened() {
+    for(auto it = devices_.begin(); it != devices_.end(); it++) {
+        if(it->second->isOpened_) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void UACContext::startThread() {
+    LOGI("start thread called, running_ %d", running_);
+    if(running_) {
+        return;
+    }
+
     running_ = true;
     usbThread_ = std::thread([=](libusb_context *ctx) {
-        while(running_) {
+
+        LOGI("audio thread enter");
+        while(running_ && isAnyDeviceOpened()) {
             libusb_handle_events(ctx);
         }
+        running_ = false;
+        LOGI("audio thread exit");
     }, usbContext_);
     usbThread_.detach();
-
-    return 0;
 }
 
 int UACContext::unInit() {
     running_ = false;
+
+    for(auto it = devices_.begin(); it != devices_.end(); it++) {
+        if(it->second->usbDevice_) {
+            libusb_unref_device(it->second->usbDevice_);
+        }
+    }
 
     return 0;
 }
@@ -40,16 +70,14 @@ std::shared_ptr<UACDevice> UACContext::findDevice(const int vid, const int pid, 
         LOGE("uac context not init yet");
         return device;
     }
+    std::ostringstream oss;
+    oss << vid << "_" << pid << "_" << sn;
+    std::string key = oss.str();
 
-    LOGE("we're here");
-    for(auto it = devices_.begin(); it != devices_.end(); it++) {
-        if((*it)->venderId_ == vid && (*it)->productId_ == pid) {
-            return *it;
-        }
-    }
-    
-    LOGE("we're here");
+    LOGE("we're here, key %s, vid %d, pid %d, sn %s, fd %d, bnum %d, daddr %d", key.c_str(), vid, pid, sn.c_str(), fd, busnum, devaddr);
+
     libusb_device *usbDevice = libusb_get_device_with_fd(usbContext_, vid, pid, sn.c_str(), fd, busnum, devaddr);
+    LOGE("we're here, usbDevice %p", usbDevice);
     if(usbDevice){
         libusb_set_device_fd(usbDevice, fd);  // assign fd to libusb_device for non-rooted Android devices
         libusb_ref_device(usbDevice);
@@ -59,29 +87,39 @@ std::shared_ptr<UACDevice> UACContext::findDevice(const int vid, const int pid, 
         device->venderId_ = vid;
         device->productId_ = pid;
 
-        devices_.push_back(device);
+       // get config descriptor
+        device->getConfig();
+
+        // scan control interface
+        device->scanControlInterface();
+
+        // scan audio interface
+        device->scanAudioInterface();
+
+        devices_[key] = device;
     }
     LOGE("we're here");
 
     return device;
 }
 
-std::vector<std::shared_ptr<UACDevice>> UACContext::getDevices() {
+std::map<std::string, std::shared_ptr<UACDevice>> UACContext::getDevices() {
     return devices_;
 }
 
 int UACInterface::claim(libusb_device_handle *handle) {
-    int r = libusb_kernel_driver_active(handle, intfIdx_);
+
+    int r = libusb_kernel_driver_active(handle, ifDescr_->bInterfaceNumber);
     LOGD("libusb_kernel_driver_active, %d", r);  
     if(r == 1) {
         //find out if kernel driver is attached  
         LOGD("Kernel Driver Active");  
-        if(libusb_detach_kernel_driver(handle, intfIdx_) == 0) //detach it  
+        if(libusb_detach_kernel_driver(handle, ifDescr_->bInterfaceNumber) == 0) //detach it
             LOGD("Kernel Driver Detached!");  
     }  
     LOGD("kernel detach errno:%d, %s", errno, strerror(errno));
 
-    r = libusb_claim_interface(handle, intfIdx_);            //claim interface 0 (the first) of device (mine had jsut 1)  
+    r = libusb_claim_interface(handle, ifDescr_->bInterfaceNumber);            //claim interface 0 (the first) of device (mine had jsut 1)
     if(r != 0) {  
         LOGD("Cannot Claim Interface, %d", r);  
         return r;  
@@ -90,6 +128,7 @@ int UACInterface::claim(libusb_device_handle *handle) {
 
     return 0;
 }
+
 
 int UACDevice::open() {
 
@@ -110,26 +149,16 @@ int UACDevice::open() {
         return ret;
     }
     libusb_ref_device(usbDevice_);
-    isOpened_ = true;
 
-    // get config descriptor
-    ret = libusb_get_config_descriptor(usbDevice_, 0, &config_);
-    if(ret != 0) {
-        LOGE("libusb_get_config_descriptor failed, %d", ret);
-        return ret;
+    // claim interface
+    ctrlIf_->claim(usbDeviceHandle_);
+    for(auto it = streamIfs_.begin(); it != streamIfs_.end(); it++) {
+        it->second->claim(usbDeviceHandle_);
     }
 
-    // ret = libusb_set_configuration(usbDeviceHandle_, config_->bConfigurationValue);
-    // if(ret != 0) {
-    //     LOGE("libusb_set_configuration failed, ret %d(%s)", ret, libusb_error_name(ret));
-    //     return ret;
-    // }
+    isOpened_ = true;
 
-    // scan control interface
-    _scanControlInterface();
-
-    // scan audio interface
-    _scanAudioInterface();
+    UACContext::getInstance().startThread();
 
     // start to fetch audio data
     _startStreaming();
@@ -137,7 +166,24 @@ int UACDevice::open() {
     return 0;
 }
 
-void UACDevice::_scanControlInterface() {
+int UACDevice::getConfig() {
+
+    auto ret = libusb_get_config_descriptor(usbDevice_, 0, &config_);
+    if(ret != 0) {
+        LOGE("libusb_get_config_descriptor failed, %d", ret);
+        return ret;
+    }
+
+    return 0;
+}
+
+int UACDevice::_parseAudioControlSpecific(std::shared_ptr<UACInterface> interface, const unsigned char *extra, const int len) {
+    // todo parse audio control specific
+    return 0;
+}
+
+
+void UACDevice::scanControlInterface() {
 
     // find control interface
     auto cnt = config_->bNumInterfaces;
@@ -145,26 +191,20 @@ void UACDevice::_scanControlInterface() {
         for(int interfaceIdx = 0; interfaceIdx < cnt; interfaceIdx++) {
             auto num_altsetting = config_->interface[interfaceIdx].num_altsetting;
 
-            LOGE("we're here, num_altsetting: %d", cnt);
+            LOGE("we're here, num_altsetting: %d", num_altsetting);
             for(int settingIdx = 0; settingIdx < num_altsetting; settingIdx++) {
 
                 const libusb_interface_descriptor *ifDescr = &config_->interface[interfaceIdx].altsetting[settingIdx];
 
-                LOGE("we're here, setting: len %d, type %d, ifNum %d, settingN %d, epNum %d, \
-                        class %d, subclass %d, proto %d, strIf %d, extLen %d", ifDescr->bLength,
-                        ifDescr->bDescriptorType, ifDescr->bInterfaceNumber, ifDescr->bAlternateSetting,
+                LOGE("we're here, setting: len %d, type %d, ifNum %d, settingN %d, epNum %d,class %d, subclass %d, proto %d, strIf %d, extLen %d",
+                        ifDescr->bLength, ifDescr->bDescriptorType, ifDescr->bInterfaceNumber, ifDescr->bAlternateSetting,
                         ifDescr->bNumEndpoints, ifDescr->bInterfaceClass, ifDescr->bInterfaceSubClass,
                         ifDescr->bInterfaceProtocol, ifDescr->iInterface, ifDescr->extra_length);
 
                 if(ifDescr->bInterfaceClass == LIBUSB_CLASS_AUDIO && ifDescr->bInterfaceSubClass == 0x1) { // audio, control
                     ctrlIf_.reset(new UACInterface);
-                    ctrlIf_->altsettingIdx_ = ifDescr->b
-                    ctrlIf_->intfIdx_ = ifDescr->bInterfaceNumber;
-                    if(ifDescr->endpoint) {
-                        ctrlIf_->endpointAddr_ = ifDescr->endpoint->bEndpointAddress;
-                    }
-
-                    ctrlIf_->claim(usbDeviceHandle_);
+                    ctrlIf_->ifDescr_ = ifDescr;
+                    ctrlIf_->epDescr_ = ifDescr->endpoint;
 
                     break;
                 }
@@ -173,7 +213,66 @@ void UACDevice::_scanControlInterface() {
     }
 }
 
-void UACDevice::_scanAudioInterface() {
+int UACDevice::_parseAudioStreamSpecific(std::shared_ptr<UACInterface> interface, const unsigned char *extra, const int len){
+    if(len < 3) {
+        LOGE("invalid interface extra");
+        return -1;
+    }
+
+    AudioStreamSpecific asSpecific;
+
+    int remainBytes = len;
+    while(remainBytes > 0) {
+        int pos = 0;
+        uint8_t bLength = extra[pos++];
+        uint8_t bDescriptorType = extra[pos++];
+        uint8_t bDescriptorSubtype = extra[pos++];
+
+        switch((ASIDSubtype)bDescriptorSubtype) {
+        case ASIDSubtype::AS_GENERAL: {
+                ASGeneralInterfaceDescriptor generalDescr;
+                generalDescr.bTerminalLink = extra[pos++];
+                generalDescr.bDelay = extra[pos++];
+                uint8_t lv = extra[pos++];
+                uint8_t hv = extra[pos++];
+                generalDescr.wFormatTag = hv << 8 | lv;
+
+                asSpecific.asGeneralIfDescr_ = generalDescr;
+            }
+            break;
+        case ASIDSubtype::FORMAT_TYPE: {
+                uint8_t bFormatType = extra[pos++];
+                if((FormatType)bFormatType == FormatType::FORMAT_TYPE_I){
+                    FormatTypeIDescriptor formatTypeI;
+                    formatTypeI.bNrChannels = extra[pos++];
+                    formatTypeI.bSubFrameSize = extra[pos++];
+                    formatTypeI.bBitResolution = extra[pos++];
+                    formatTypeI.bSamFreqType = extra[pos++];
+                    uint8_t lv = extra[pos++];
+                    uint8_t mv = extra[pos++];
+                    uint8_t hv = extra[pos++];
+                    formatTypeI.tSamFreq = hv << 16 | mv << 8 | lv;
+                    asSpecific.formatTypeIDescr_ = formatTypeI;
+                } else {
+                    LOGI("not supported format type: %d", bFormatType);
+                }
+            }
+            break;
+        default:
+            LOGI("not supported ASIDSubtype: %d", bDescriptorSubtype);
+            break;
+        }
+
+        remainBytes -= bLength;
+        extra = extra + bLength;
+    }
+
+    interface->asSpecific_ = asSpecific;
+
+    return 0;
+}
+
+void UACDevice::scanAudioInterface() {
 
     // find audio interface
     auto cnt = config_->bNumInterfaces;
@@ -182,38 +281,47 @@ void UACDevice::_scanAudioInterface() {
         for(int interfaceIdx = 0; interfaceIdx < cnt; interfaceIdx++) {
             auto num_altsetting = config_->interface[interfaceIdx].num_altsetting;
 
-            LOGE("we're here, num_altsetting: %d", cnt);
+            LOGE("we're here, num_altsetting: %d", num_altsetting);
             for(int settingIdx = 0; settingIdx < num_altsetting; settingIdx++) {
 
                 const libusb_interface_descriptor *ifDescr = &config_->interface[interfaceIdx].altsetting[settingIdx];
 
-                LOGE("we're here, setting: len %d, type %d, ifNum %d, settingN %d, epNum %d, \
-                        class %d, subclass %d, proto %d, strIf %d, extLen %d, ep %p", ifDescr->bLength,
-                        ifDescr->bDescriptorType, ifDescr->bInterfaceNumber, ifDescr->bAlternateSetting,
+                LOGE("we're here, setting: len %d, type %d, ifNum %d, settingN %d, epNum %d, mclass %d, subclass %d, proto %d, strIf %d, extLen %d, ep %p",
+                        ifDescr->bLength, ifDescr->bDescriptorType, ifDescr->bInterfaceNumber, ifDescr->bAlternateSetting,
                         ifDescr->bNumEndpoints, ifDescr->bInterfaceClass, ifDescr->bInterfaceSubClass,
                         ifDescr->bInterfaceProtocol, ifDescr->iInterface, ifDescr->extra_length, ifDescr->endpoint);
+                if(ifDescr->extra) {
+                    LOGE("we're here, inteface extra: %s", bin2str(ifDescr->extra, ifDescr->extra_length).c_str());
+                }
+                if(ifDescr->endpoint && ifDescr->endpoint->extra) {
+                    LOGE("we're here, ep extra: %s", bin2str(ifDescr->endpoint->extra, ifDescr->endpoint->extra_length).c_str());
+                }
 
                 if(ifDescr->bInterfaceClass == LIBUSB_CLASS_AUDIO && ifDescr->bInterfaceSubClass == 0x2) { // audio, stream
-                    // auto epCnt = ifDescr->bNumEndpoints;
-                    // if(epCnt && ifDescr->endpoint) {
+
                     if(ifDescr->endpoint) {
                         std::shared_ptr<UACInterface> interface = std::make_shared<UACInterface>();
-                        interface->intfIdx_ = ifDescr->bInterfaceNumber;
-                        interface->endpointAddr_ = ifDescr->endpoint->bEndpointAddress;
-                        int maxSize = libusb_get_max_iso_packet_size(usbDevice_, interface->endpointAddr_);
-                        interface->maxPackageSize_ = maxSize > 0 ? maxSize : ifDescr->endpoint->wMaxPacketSize;
+                        interface->ifDescr_ = ifDescr;
+                        interface->epDescr_ = ifDescr->endpoint;
 
-                        interface->claim(usbDeviceHandle_);
+                        _parseAudioStreamSpecific(interface, ifDescr->extra, ifDescr->extra_length);
 
-                        streamIfs_.push_back(interface);
+                        if(interface->asSpecific_.formatTypeIDescr_.bBitResolution != 0x10) { // not 16bit
+                            continue;
+                        }
 
-                        LOGD("we're here, ep maxPackageSize: %d, %d", interface->maxPackageSize_, ifDescr->endpoint->wMaxPacketSize);
+                        auto it = streamIfs_.find(ifDescr->bInterfaceNumber);
+                        if(it == streamIfs_.end()
+                            || (it != streamIfs_.end() && it->second->epDescr_->wMaxPacketSize < interface->epDescr_->wMaxPacketSize)) {
+                                streamIfs_[ifDescr->bInterfaceNumber] = interface;
+                        }
+
                     }
                 }
             }
         }
     } else {
-    LOGE("we're here, no inteface");
+        LOGE("we're here, no inteface");
     }
 }
 
@@ -241,14 +349,12 @@ static void _process_payload_iso(libusb_transfer *transfer) {
         return;
     }
 
-    // todo make a const
-    int packets_per_transfer = 16;
-    size_t maxPackageSize = device->streamIfs_[0]->maxPackageSize_;
-
     /* per packet */
     unsigned char *pktbuf;
     struct libusb_iso_packet_descriptor *pkt;
     std::string recv;
+
+    LOGE("we're here, _process_payload_iso, num_iso_packets: %d", transfer->num_iso_packets);
     for (int packet_id = 0; packet_id < transfer->num_iso_packets; ++packet_id) {
 
         pkt = &transfer->iso_packet_desc[packet_id];
@@ -265,7 +371,9 @@ static void _process_payload_iso(libusb_transfer *transfer) {
             LOGE("receive pktbuf null\n");
         }
 
-        recv.append((char*)pktbuf, pkt->length);
+        //LOGE("we're here, per packet, len %d|%d, buf: %s", pkt->length, pkt->actual_length, bin2str(pktbuf, pkt->length).c_str());
+
+        recv.append((char*)pktbuf, pkt->actual_length);
 
     }   // for
 
@@ -275,12 +383,6 @@ static void _process_payload_iso(libusb_transfer *transfer) {
 
     if(device->frameCallback_) {
         device->frameCallback_->onStreaming(recv);
-    }
-
-
-    if (recv.size() > maxPackageSize * transfer->num_iso_packets) {
-        LOGE("Error: incoming transfer had more data than we thought.\n");
-        return;
     }
 
 }
@@ -324,35 +426,50 @@ static void _stream_callback(libusb_transfer *transfer)
 }
 
 void UACDevice::_transfer() {
-        LOGE("we're here");
-    // todo make a const
-    const int LIBUAC_NUM_TRANSFER_BUFS = 10;
-    int packets_per_transfer = 16;
 
     LOGE("we're here, ifs size: %d", streamIfs_.size());
     if(streamIfs_.size() <= 0){
         LOGE("no valid interfaces");
         return;
     }
-    uint8_t endpointAddress = streamIfs_[0]->endpointAddr_;
-    size_t endpoint_bytes_per_packet = streamIfs_[0]->maxPackageSize_;
-    size_t total_transfer_size = endpoint_bytes_per_packet * packets_per_transfer;
-    libusb_transfer* transfers[LIBUAC_NUM_TRANSFER_BUFS];
-    uint8_t* transfer_bufs[LIBUAC_NUM_TRANSFER_BUFS];
+    auto uIf = streamIfs_.begin()->second;
+    auto interface = uIf->ifDescr_;
+    auto endpoint = uIf->epDescr_;
 
-    // todo select altenatesetting
-    //libusb_set_interface_alt_setting(usbDeviceHandle_, streamIfs_[0]->intfIdx_,
+    uint8_t endpointAddress = endpoint->bEndpointAddress;
+
+    int val = endpoint->wMaxPacketSize;
+    int r = val & 0x07ff;
+
+    int ep_type = (enum libusb_transfer_type) (endpoint->bmAttributes & 0x3);
+    if (ep_type == LIBUSB_TRANSFER_TYPE_ISOCHRONOUS
+            || ep_type == LIBUSB_TRANSFER_TYPE_INTERRUPT) {
+        r *= (1 + ((val >> 11) & 3));
+    }
+    size_t endpoint_bytes_per_packet = r;
+    size_t total_transfer_size = endpoint_bytes_per_packet * PACKETS_PER_TRANSFER;
+    libusb_transfer* transfers[NUM_TRANSFER_BUFS];
+    uint8_t* transfer_bufs[NUM_TRANSFER_BUFS];
+
+    // select altenatesetting
+    auto ret = libusb_set_interface_alt_setting(usbDeviceHandle_, interface->bInterfaceNumber, interface->bAlternateSetting);
+    LOGE("we're here, interface %d, altsetting %d", interface->bInterfaceNumber, interface->bAlternateSetting);
+    if(ret < 0) {
+        LOGE("libusb_set_interface_alt_setting failed, ret %d(%s)", ret, libusb_error_name(ret));
+        return;
+
+    }
 
         LOGE("we're here");
 
     LOGD("Set up the transfers\n");
 
     LOGD("before fill EndpointAddress:%d, per_packet:%d, packets:%d, total_transfer_size:%d\n",
-                       endpointAddress, endpoint_bytes_per_packet, packets_per_transfer, total_transfer_size);
-    for (int transfer_id = 0; transfer_id < LIBUAC_NUM_TRANSFER_BUFS; ++transfer_id)
+                       endpointAddress, endpoint_bytes_per_packet, PACKETS_PER_TRANSFER, total_transfer_size);
+    for (int transfer_id = 0; transfer_id < NUM_TRANSFER_BUFS; ++transfer_id)
     {
         LOGD("fill transfer_id:%d\n", transfer_id);
-        libusb_transfer *transfer = libusb_alloc_transfer(packets_per_transfer);
+        libusb_transfer *transfer = libusb_alloc_transfer(PACKETS_PER_TRANSFER);
         transfers[transfer_id] = transfer;
         transfer_bufs[transfer_id] = (unsigned char *)malloc(total_transfer_size);
         if(transfer_bufs[transfer_id] == nullptr) {
@@ -362,18 +479,17 @@ void UACDevice::_transfer() {
         libusb_fill_iso_transfer(transfer, usbDeviceHandle_,
             endpointAddress,
             transfer_bufs[transfer_id], total_transfer_size,
-            packets_per_transfer, _stream_callback,
+            PACKETS_PER_TRANSFER, _stream_callback,
             (void *)this, 1000);
 
         libusb_set_iso_packet_lengths(transfer, endpoint_bytes_per_packet);
 
         LOGD("fill transfer_id:%d finished\n", transfer_id);
-        
     }
 
     LOGD("before submit errno:%d\n", errno);
 
-    for (int transfer_id = 0; transfer_id < LIBUAC_NUM_TRANSFER_BUFS; transfer_id++) {
+    for (int transfer_id = 0; transfer_id < NUM_TRANSFER_BUFS; transfer_id++) {
         LOGD("submit transfer_id:%d\n", transfer_id);
         auto ret = libusb_submit_transfer(transfers[transfer_id]);
         if (ret != 0) {
@@ -396,7 +512,6 @@ int UACDevice::_stopStreaming() {
 int UACDevice::close() {
     isOpened_ = false;
     isRecording_ = false;
-    libusb_unref_device(usbDevice_);
     libusb_close(usbDeviceHandle_);
 
     return 0;

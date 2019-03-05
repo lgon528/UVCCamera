@@ -43,11 +43,18 @@ static void nativeSetAudioStreamCallback(JNIEnv *env, jobject thiz, jlong devPtr
     device->setAudioStreamCallback(std::shared_ptr<IAudioStreamCallbackJni>(new IAudioStreamCallbackJni(callbackObj)));
 }
 
+static int nativeCloseDevice(JNIEnv *env, jobject thiz, jlong devPtr) {
+    UACDevice *device = reinterpret_cast<UACDevice*>(devPtr);
+
+    return device->close();
+}
+
 const static std::string gClassName = "com/serenegiant/usb/UACAudio";
 const static JNINativeMethod methods[] = {
     {"nativeInit", "()I", (void*) nativeInit},
     {"nativeGetDevice", "(IIILjava/lang/String;II)J", (void*)nativeGetDevice},
     {"nativeOpenDevice", "(J)I", (void*)nativeOpenDevice},
+    {"nativeCloseDevice", "(J)I", (void*)nativeCloseDevice},
     {"nativeStartRecord", "(JLjava/lang/String;)I", (void*)nativeStartRecord},
     {"nativeStopRecord", "(J)I", (void*)nativeStopRecord},
     {"nativeSetAudioStreamCallback", "(JLcom/serenegiant/usb/IAudioStreamCallback;)V", (void*)nativeSetAudioStreamCallback}
@@ -69,7 +76,9 @@ static int registerNativeMethods(JNIEnv *env) {
 }
 
 static void initIDs(JNIEnv *env) {
-    IAudioStreamCallbackJni::initIDs(env);
+    if(!IAudioStreamCallbackJni::initIDs(env)) {
+        LOGE("IAudioStreamCallbackJni::initIDs failed");
+    }
 }
 
 
@@ -81,7 +90,10 @@ JNI_OnLoad(JavaVM *vm, void *reserved) {
     JniHelper::Init(vm);
 
     ScopedJEnv scopedJEnv;
-    registerNativeMethods(scopedJEnv.GetEnv());
+    JNIEnv * env = scopedJEnv.GetEnv();
+
+    initIDs(env);
+    registerNativeMethods(env);
 
     return JNI_VERSION_1_2;
 }

@@ -24,7 +24,11 @@
 package com.serenegiant.usbcameratest0;
 
 import android.hardware.usb.UsbDevice;
+import android.media.AudioFormat;
+import android.media.AudioManager;
+import android.media.AudioTrack;
 import android.os.Bundle;
+import android.os.Environment;
 import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
@@ -43,6 +47,12 @@ import com.serenegiant.usb.USBMonitor.OnDeviceConnectListener;
 import com.serenegiant.usb.USBMonitor.UsbControlBlock;
 import com.serenegiant.usb.UVCCamera;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+
 public class MainActivity extends BaseActivity implements CameraDialog.CameraDialogParent {
 	private static final boolean DEBUG = true;	// TODO set false when production
 	private static final String TAG = "MainActivity";
@@ -57,6 +67,13 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 	private Surface mPreviewSurface;
 	private boolean isActive, isPreview;
 
+	private UACAudio mUACAudio;
+	private int sampleRate = 48000;
+	private int bufferSizeInBytes = 0;
+	private AudioTrack audioTrack;
+	private ByteBuffer byteBuffer;
+	private String filePath;
+
 	@Override
 	protected void onCreate(final Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -68,6 +85,14 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 		mUVCCameraView.getHolder().addCallback(mSurfaceViewCallback);
 
 		mUSBMonitor = new USBMonitor(this, mOnDeviceConnectListener);
+
+		//最小缓存区
+		bufferSizeInBytes = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT);
+		byteBuffer = ByteBuffer.allocate(bufferSizeInBytes);
+		byteBuffer.clear();
+		Log.i(TAG, "we're here, bufferSizeInBytes: " + bufferSizeInBytes);
+		//创建AudioTrack对象   依次传入 :流类型、采样率（与采集的要一致）、音频通道（采集是IN 播放时OUT）、量化位数、最小缓冲区、模式
+		audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,sampleRate,AudioFormat.CHANNEL_OUT_STEREO,AudioFormat.ENCODING_PCM_16BIT, bufferSizeInBytes, AudioTrack.MODE_STREAM);
 	}
 
 	@Override
@@ -114,6 +139,9 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 	private final OnClickListener mOnClickListener = new OnClickListener() {
 		@Override
 		public void onClick(final View view) {
+			Log.i(TAG,"we're here, cur filepath: " + filePath);
+//			filePath = Environment.getExternalStorageDirectory().getPath() + "/justfortest/1551755170047";
+//			playAudio();
 			if (mUVCCamera == null) {
 				// XXX calling CameraDialog.showDialog is necessary at only first time(only when app has no permission).
 				CameraDialog.showDialog(MainActivity.this);
@@ -122,10 +150,44 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 					mUVCCamera.destroy();
 					mUVCCamera = null;
 					isActive = isPreview = false;
+
+					mUACAudio.close();
+//					playAudio();
+					audioTrack.stop();
 				}
 			}
 		}
 	};
+
+	private void playAudio(){
+		try {
+			int chunklen = 2 * bufferSizeInBytes;
+			byte[] chunk = new byte[chunklen];
+			int sum = 0;
+
+			FileInputStream inputStream = new FileInputStream(filePath);
+
+			audioTrack.play();
+			while(true) {
+				try {
+					int len = inputStream.read(chunk);
+					Log.e(TAG, "we're here, len: " + len);
+					if(len < 0) break;
+
+					sum += len;
+
+					audioTrack.write(chunk, 0, len);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+			audioTrack.stop();
+			Log.e(TAG, "we're here, totalSize: " + sum);
+			Toast.makeText(MainActivity.this, "play audio finished", Toast.LENGTH_SHORT).show();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
 
 	private final OnDeviceConnectListener mOnDeviceConnectListener = new OnDeviceConnectListener() {
 		@Override
@@ -137,6 +199,7 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 		@Override
 		public void onConnect(final UsbDevice device, final UsbControlBlock ctrlBlock, final boolean createNew) {
 			if (DEBUG) Log.v(TAG, "onConnect:");
+
 			synchronized (mSync) {
 				if (mUVCCamera != null) {
 					mUVCCamera.destroy();
@@ -172,6 +235,17 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 							mUVCCamera = camera;
 						}
 
+
+						filePath = Environment.getExternalStorageDirectory().getPath() + "/justfortest/" + System.currentTimeMillis();
+						File file = new File(filePath);
+						if(!file.exists()) {
+							try {
+								file.createNewFile();
+							} catch (IOException e) {
+								e.printStackTrace();
+							}
+						}
+
 						UACAudio audio = new UACAudio(ctrlBlock);
 						int ret = audio.init();
 						if(ret != 0) {
@@ -183,12 +257,18 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 							Log.e(TAG, "open audio failed, ret: " + ret);
 							return;
 						}
+						audioTrack.play();
 						audio.setAudioStreamCallback(new IAudioStreamCallback() {
 							@Override
 							public void onStreaming(byte[] data) {
 								Log.i(TAG, "onStreaming, size: " + data.length);
+//								Log.i(TAG, "onStreaming, content: " + byte2hex(data));
+
+								audioTrack.write(data, 0, data.length);
 							}
 						});
+
+						mUACAudio = audio;
 					}
 				}
 			}, 0);
@@ -279,4 +359,31 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 			mPreviewSurface = null;
 		}
 	};
+
+	private static final char[] digits = new char[]{'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+	/**
+	 * 二进制转化为十六进制字符串
+	 * @param buffer
+	 * @return
+	 */
+	public synchronized String byte2hex(byte [] buffer) {
+		StringBuilder strBuilder = new StringBuilder();
+		if (buffer != null && buffer.length != 0) {
+			char ch;
+			char cl;
+
+			for (int i = 0; i < buffer.length; ++i) {
+				byte b = buffer[i];
+				cl = digits[b & 15];
+				b = (byte) (b >>> 4);
+				ch = digits[b & 15];
+
+				strBuilder.append(ch).append(cl);
+			}
+
+			return strBuilder.toString();
+		} else {
+			return null;
+		}
+	}
 }

@@ -19,7 +19,8 @@ LOCAL_LDLIBS := -llog
 LOCAL_SRC_FILES := libuac_jni.cpp \
 					jni_helper.cpp \
 					audio_stream_callback_jni.cpp \
-					../../libuac.cpp 
+					../../libuac.cpp \
+					../../utils.cpp
 
 LOCAL_MODULE	:= uac
 include $(BUILD_SHARED_LIBRARY)

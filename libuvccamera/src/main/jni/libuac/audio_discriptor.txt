@@ -1,0 +1,94 @@
+audio control interface extra:
+    AC Interface HEADER Descriptor
+        bLength             09
+        bDescriptorType     24
+        bDescriptorSubtype  01 => HEADER subtype
+        bcdADC              0001 => 0100 => Revision of class specification - 1.0
+        wTotalLength        2700 => 0027 => Total size of class specific descriptors.
+        bInCollection       01 => Number of streaming interfaces.
+        baInterfaceNr       03 => AudioStreaming interface 3 belongs to this AudioControl interface.
+
+    Input Terminal Descriptor
+        bLength             0c
+        bDescriptorType     24
+        bDescriptorSubtype  02 => INPUT_TERMINAL subtype
+        bTerminalID         01
+        wTerminalType       0102 => 0201 Terminal is Microphone.
+        bAssocTerminal      00 => No association
+        bNrChannels         01  => One channel.
+        wChannelConfig      0300 => 0003
+        iChannelNames       00
+        iTerminal           00
+
+    Output Terminal Descriptor
+        bLength             09
+        bDescriptorType     24
+        bDescriptorSubtype  03 => OUTPUT_TERMINAL subtype
+        bTerminalID         02
+        wTerminalType       0101 => USB Streaming
+        bAssocTerminal      01
+        bSourceID           03 => From Input Terminal
+        iTerminal           00
+
+    Feature Unit Descriptor
+        bLength             09
+        bDescriptorType     24
+        bDescriptorSubtype  06 => FEATURE_UNIT
+        bUnitID             03
+        bSourceID           01  => Terminal ID
+        bControlSize        02 => Size in bytes of an element of the bmaControls() array: n
+        bmaControls         0302 => 0203 => 0000 0010 0000 0011 => Loudness, Volume, Mute
+        iFeature            00 => Index of a string descriptor, describing this Feature Unit
+
+
+audio stream interface extra:
+
+    altsetting(4):
+        AudioStreaming Interface Descriptor:
+            bLength             07
+            bDescriptorType     24 => 36
+            bDescriptorSubtype  01 => AS_GENERAL
+            bTerminalLink       02
+            bDelay              01
+            wFormatTag          0100 => (bigend) 0x0001 pcm
+
+        AudioStreaming Interface Descriptor:
+            bLength             0b => 11
+            bDescriptorType     24 => 36
+            bDescriptorSubtype  02 => format_type
+            bFormatType         01 => format_type_i
+            bNrChannels         02
+            bSubframeSize       02 => 2bytes per audio subframe
+            bBitResolution      10 => 16bit per sample
+            bSamFreqType        01 => one frequency supported
+            tSamFreq            80bb00 =>(bigend) 0x00bb80 => 48000
+
+    altsetting(8):
+        AudioStreaming Interface Descriptor:
+            bLength             07
+            bDescriptorType     24 => 36
+            bDescriptorSubtype  01 => AS_GENERAL
+            bTerminalLink       02
+            bDelay              01
+            wFormatTag          0100 => (bigend) 0x0001 pcm
+
+        AudioStreaming Interface Descriptor:
+            bLength             0b => 11
+            bDescriptorType     24 => 36
+            bDescriptorSubtype  02 => format_type
+            bFormatType         01 => format_type_i
+            bNrChannels         02
+            bSubframeSize       03 => 3bytes per audio subframe
+            bBitResolution      18 => 24bit per sample
+            bSamFreqType        01 => one frequency supported
+            tSamFreq            80bb00 =>(bigend) 0x00bb80 => 48000
+
+
+endpoint extra:
+    AudioControl Endpoint Descriptor:
+        bLength             07
+        bDescriptorType     25 => 37
+        bDescriptorSubtype  01 => EP_GENERAL
+        bmAttributes        01 => Sampling Frequency
+        bLockDelayUnits     00 => Undefined
+        wLockDelay          0000 => Undefined

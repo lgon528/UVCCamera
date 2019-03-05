@@ -46,6 +46,11 @@ public class UACAudio {
         return nativeOpenDevice(cptr);
     }
 
+    public synchronized int close() {
+        Log.d(TAG, "close device");
+        return nativeCloseDevice(cptr);
+    }
+
 
     public synchronized int startRecord(String path) {
         Log.d(TAG, "startRecord");
@@ -65,6 +70,7 @@ public class UACAudio {
     private native int nativeInit();
     private native long nativeGetDevice(int vid, int pid, int fd, String sn, int busnum, int devaddr);
     private native int nativeOpenDevice(long devPtr);
+    private native int nativeCloseDevice(long devPtr);
     private native int nativeStartRecord(long devPtr, String path);
     private native int nativeStopRecord(long devPtr);
     private native void nativeSetAudioStreamCallback(long devPtr, IAudioStreamCallback cb);
