@@ -40,7 +40,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class UVCCamera {
-	private static final boolean DEBUG = false;	// TODO set false when releasing
+	private static final boolean DEBUG = true;	// TODO set false when releasing
 	private static final String TAG = UVCCamera.class.getSimpleName();
 	private static final String DEFAULT_USBFS = "/dev/bus/usb";
 
@@ -203,6 +203,7 @@ public class UVCCamera {
 		if (result != 0) {
 			throw new UnsupportedOperationException("open failed:result=" + result);
 		}
+
     	if (mNativePtr != 0 && TextUtils.isEmpty(mSupportedSize)) {
     		mSupportedSize = nativeGetSupportedSize(mNativePtr);
     	}
@@ -234,6 +235,7 @@ public class UVCCamera {
      * close and release UVC camera
      */
     public synchronized void close() {
+		if (DEBUG) Log.v(TAG, "close:begin");
     	stopPreview();
     	if (mNativePtr != 0) {
     		nativeRelease(mNativePtr);
@@ -434,6 +436,7 @@ public class UVCCamera {
      * destroy UVCCamera object
      */
     public synchronized void destroy() {
+    	Log.e(TAG, "uvccamera destroy");
     	close();
     	if (mNativePtr != 0) {
     		nativeDestroy(mNativePtr);

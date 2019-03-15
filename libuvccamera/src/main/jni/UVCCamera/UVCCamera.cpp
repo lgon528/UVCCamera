@@ -23,7 +23,7 @@
 */
 
 #define LOG_TAG "UVCCamera"
-#if 1	// デバッグ情報を出さない時1
+#if 0	// デバッグ情報を出さない時1
 	#ifndef LOG_NDEBUG
 		#define	LOG_NDEBUG		// LOGV/LOGD/MARKを出力しない時
 		#endif
@@ -151,6 +151,7 @@ int UVCCamera::connect(int vid, int pid, int fd, int busnum, int devaddr, const 
 		}
 		// カメラ機能フラグをクリア
 		clearCameraParams();
+        LOGE("we're here, uvc vid %d, pid %d, usbfs %s, fd %d, bnum %d, daddr %d", vid, pid, usbfs, fd, busnum, devaddr);
 		fd = dup(fd);
 		// 指定したvid,idを持つデバイスを検索, 見つかれば0を返してmDeviceに見つかったデバイスをセットする(既に1回uvc_ref_deviceを呼んである)
 //		result = uvc_find_device2(mContext, &mDevice, vid, pid, NULL, fd);
@@ -278,7 +279,7 @@ int UVCCamera::startPreview() {
 
 	int result = EXIT_FAILURE;
 	if (mDeviceHandle) {
-		return mPreview->startPreview();
+	    result = mPreview->startPreview();
 	}
 	RETURN(result, int);
 }

@@ -23,16 +23,6 @@
 
 package com.serenegiant.usb;
 
-import java.io.UnsupportedEncodingException;
-import java.lang.ref.WeakReference;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
 import android.annotation.SuppressLint;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
@@ -51,9 +41,19 @@ import android.util.SparseArray;
 import com.serenegiant.utils.BuildCheck;
 import com.serenegiant.utils.HandlerThreadHandler;
 
+import java.io.UnsupportedEncodingException;
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
 public final class USBMonitor {
 
-	private static final boolean DEBUG = false;	// TODO set false on production
+	private static final boolean DEBUG = true;	// TODO set false on production
 	private static final String TAG = "USBMonitor";
 
 	private static final String ACTION_USB_PERMISSION_BASE = "com.serenegiant.USB_PERMISSION.";
@@ -330,7 +330,7 @@ public final class USBMonitor {
 		final List<UsbDevice> result = new ArrayList<UsbDevice>();
 		if (deviceList != null) {
 			for (final UsbDevice device: deviceList.values() ) {
-				if ((filter == null) || (filter.matches(device) && !filter.isExclude)) {
+				if (true || (filter == null) || (filter.matches(device) && !filter.isExclude)) {
 					result.add(device);
 				}
 			}
@@ -982,7 +982,7 @@ public final class USBMonitor {
 			}
 			mBusNum = busnum;
 			mDevNum = devnum;
-//			if (DEBUG) {
+			if (DEBUG) {
 				if (mConnection != null) {
 					final int desc = mConnection.getFileDescriptor();
 					final byte[] rawDesc = mConnection.getRawDescriptors();
@@ -990,7 +990,7 @@ public final class USBMonitor {
 				} else {
 					Log.e(TAG, "could not connect to device " + name);
 				}
-//			}
+			}
 		}
 
 		/**

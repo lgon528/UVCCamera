@@ -28,7 +28,6 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.os.Bundle;
-import android.os.Environment;
 import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
@@ -47,7 +46,6 @@ import com.serenegiant.usb.USBMonitor.OnDeviceConnectListener;
 import com.serenegiant.usb.USBMonitor.UsbControlBlock;
 import com.serenegiant.usb.UVCCamera;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -65,6 +63,8 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 	// for open&start / stop&close camera preview
 	private ImageButton mCameraButton;
 	private Surface mPreviewSurface;
+	private int mPreviewWidth = UVCCamera.DEFAULT_PREVIEW_WIDTH;
+	private int mPreviewHeight = UVCCamera.DEFAULT_PREVIEW_HEIGHT;
 	private boolean isActive, isPreview;
 
 	private UACAudio mUACAudio;
@@ -87,12 +87,12 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 		mUSBMonitor = new USBMonitor(this, mOnDeviceConnectListener);
 
 		//最小缓存区
-		bufferSizeInBytes = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT);
+		bufferSizeInBytes = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
 		byteBuffer = ByteBuffer.allocate(bufferSizeInBytes);
 		byteBuffer.clear();
 		Log.i(TAG, "we're here, bufferSizeInBytes: " + bufferSizeInBytes);
 		//创建AudioTrack对象   依次传入 :流类型、采样率（与采集的要一致）、音频通道（采集是IN 播放时OUT）、量化位数、最小缓冲区、模式
-		audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,sampleRate,AudioFormat.CHANNEL_OUT_STEREO,AudioFormat.ENCODING_PCM_16BIT, bufferSizeInBytes, AudioTrack.MODE_STREAM);
+		audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,sampleRate,AudioFormat.CHANNEL_OUT_MONO,AudioFormat.ENCODING_PCM_16BIT, bufferSizeInBytes, AudioTrack.MODE_STREAM);
 	}
 
 	@Override
@@ -142,16 +142,21 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 			Log.i(TAG,"we're here, cur filepath: " + filePath);
 //			filePath = Environment.getExternalStorageDirectory().getPath() + "/justfortest/1551755170047";
 //			playAudio();
-			if (mUVCCamera == null) {
+			if (mUVCCamera == null && mUACAudio == null) {
 				// XXX calling CameraDialog.showDialog is necessary at only first time(only when app has no permission).
 				CameraDialog.showDialog(MainActivity.this);
 			} else {
 				synchronized (mSync) {
-					mUVCCamera.destroy();
-					mUVCCamera = null;
-					isActive = isPreview = false;
+					if(mUVCCamera != null) {
+						mUVCCamera.destroy();
+						mUVCCamera = null;
+						isActive = isPreview = false;
+					}
 
-					mUACAudio.close();
+					if(mUACAudio != null) {
+						mUACAudio.close();
+					}
+
 //					playAudio();
 					audioTrack.stop();
 				}
@@ -192,13 +197,13 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 	private final OnDeviceConnectListener mOnDeviceConnectListener = new OnDeviceConnectListener() {
 		@Override
 		public void onAttach(final UsbDevice device) {
-			if (DEBUG) Log.v(TAG, "onAttach:");
+			if (DEBUG) Log.v(TAG, "onAttach:" + device);
 			Toast.makeText(MainActivity.this, "USB_DEVICE_ATTACHED", Toast.LENGTH_SHORT).show();
 		}
 
 		@Override
 		public void onConnect(final UsbDevice device, final UsbControlBlock ctrlBlock, final boolean createNew) {
-			if (DEBUG) Log.v(TAG, "onConnect:");
+			if (DEBUG) Log.v(TAG, "onConnect:" + device);
 
 			synchronized (mSync) {
 				if (mUVCCamera != null) {
@@ -210,65 +215,74 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 				@Override
 				public void run() {
 					synchronized (mSync) {
-						final UVCCamera camera = new UVCCamera();
-						camera.open(ctrlBlock);
-						if (DEBUG) Log.i(TAG, "supportedSize:" + camera.getSupportedSize());
-						try {
-							camera.setPreviewSize(UVCCamera.DEFAULT_PREVIEW_WIDTH, UVCCamera.DEFAULT_PREVIEW_HEIGHT, UVCCamera.FRAME_FORMAT_MJPEG);
-						} catch (final IllegalArgumentException e) {
-							try {
-								// fallback to YUV mode
-								camera.setPreviewSize(UVCCamera.DEFAULT_PREVIEW_WIDTH, UVCCamera.DEFAULT_PREVIEW_HEIGHT, UVCCamera.DEFAULT_PREVIEW_MODE);
-							} catch (final IllegalArgumentException e1) {
-								camera.destroy();
-								return;
-							}
-						}
-						mPreviewSurface = mUVCCameraView.getHolder().getSurface();
-						if (mPreviewSurface != null) {
-							isActive = true;
-							camera.setPreviewDisplay(mPreviewSurface);
-							camera.startPreview();
-							isPreview = true;
-						}
-						synchronized (mSync) {
-							mUVCCamera = camera;
-						}
-
-
-						filePath = Environment.getExternalStorageDirectory().getPath() + "/justfortest/" + System.currentTimeMillis();
-						File file = new File(filePath);
-						if(!file.exists()) {
-							try {
-								file.createNewFile();
-							} catch (IOException e) {
-								e.printStackTrace();
-							}
-						}
 
 						UACAudio audio = new UACAudio(ctrlBlock);
-						int ret = audio.init();
-						if(ret != 0) {
-							Log.e(TAG, "init audio failed, ret: " + ret);
-							return;
-						}
-						ret = audio.open();
-						if(ret != 0) {
-							Log.e(TAG, "open audio failed, ret: " + ret);
-							return;
-						}
-						audioTrack.play();
-						audio.setAudioStreamCallback(new IAudioStreamCallback() {
-							@Override
-							public void onStreaming(byte[] data) {
-								Log.i(TAG, "onStreaming, size: " + data.length);
-//								Log.i(TAG, "onStreaming, content: " + byte2hex(data));
-
-								audioTrack.write(data, 0, data.length);
+						if(audio.isValidAudioDevice()) {
+							int ret = audio.open();
+							if (ret != 0) {
+								Log.e(TAG, "open audio failed, ret: " + ret);
+								return;
 							}
-						});
+							audioTrack.play();
+							audio.setAudioStreamCallback(new IAudioStreamCallback() {
+								@Override
+								public void onStreaming(byte[] data) {
+									Log.i(TAG, "onStreaming, size: " + data.length);
+//									Log.i(TAG, "onStreaming, content: " + byte2hex(data));
+//									byte[] frame = data;
+									byte[] frame = stereo2mono(data);
+//									Log.i(TAG, "onStreaming, frame: " + byte2hex(frame));
 
-						mUACAudio = audio;
+									audioTrack.write(frame, 0, frame.length);
+								}
+							});
+
+							mUACAudio = audio;
+						}
+
+//						final UVCCamera camera = new UVCCamera();
+//						camera.open(ctrlBlock);
+//						if (DEBUG) Log.i(TAG, "supportedSize:" + camera.getSupportedSize());
+//						mPreviewWidth = camera.getSupportedSizeList().get(0).width;
+//						mPreviewHeight = camera.getSupportedSizeList().get(0).height;
+//						try {
+//							camera.setPreviewSize(mPreviewWidth, mPreviewHeight, UVCCamera.FRAME_FORMAT_MJPEG);
+//						} catch (final IllegalArgumentException e) {
+//							try {
+//								// fallback to YUV mode
+//								camera.setPreviewSize(mPreviewWidth, mPreviewHeight, UVCCamera.DEFAULT_PREVIEW_MODE);
+//							} catch (final IllegalArgumentException e1) {
+//								Log.e(TAG, "setPreviewSize exception");
+//								e1.printStackTrace();
+//								camera.destroy();
+//								return;
+//							}
+//						}
+//						mPreviewSurface = mUVCCameraView.getHolder().getSurface();
+//						if (mPreviewSurface != null) {
+//							isActive = true;
+//							camera.setPreviewDisplay(mPreviewSurface);
+//							camera.startPreview();
+//							isPreview = true;
+//						}
+//						synchronized (mSync) {
+//							mUVCCamera = camera;
+//						}
+
+
+//						filePath = Environment.getExternalStorageDirectory().getPath() + "/justfortest/" + System.currentTimeMillis();
+//						File file = new File(filePath);
+//						if(!file.exists()) {
+//							try {
+//								file.createNewFile();
+//							} catch (IOException e) {
+//								e.printStackTrace();
+//							}
+//						}
+
+
+
+
 					}
 				}
 			}, 0);
@@ -276,7 +290,7 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 
 		@Override
 		public void onDisconnect(final UsbDevice device, final UsbControlBlock ctrlBlock) {
-			if (DEBUG) Log.v(TAG, "onDisconnect:");
+			if (DEBUG) Log.v(TAG, "onDisconnect:" + device);
 			// XXX you should check whether the comming device equal to camera device that currently using
 			queueEvent(new Runnable() {
 				@Override
@@ -297,7 +311,7 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 
 		@Override
 		public void onDettach(final UsbDevice device) {
-			if (DEBUG) Log.v(TAG, "onDettach:");
+			if (DEBUG) Log.v(TAG, "onDettach:" + device);
 			Toast.makeText(MainActivity.this, "USB_DEVICE_DETACHED", Toast.LENGTH_SHORT).show();
 		}
 
@@ -386,4 +400,46 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 			return null;
 		}
 	}
+
+
+	private byte[] stereo2mono(byte[] src) {
+
+		byte[] dst = new byte[src.length/2];
+		for(int i = 0; i < src.length/4; i++) {
+			dst[2*i] = src[4*i];
+			dst[2*i+1] = src[4*i + 1];
+		}
+
+		return dst;
+	}
+
+	private byte[] stereo2mono2(byte[] src) {
+
+		ByteBuffer sbf = ByteBuffer.allocate(src.length);
+		sbf.put(src);
+
+		byte[] dst = new byte[src.length/2];
+		sbf.get(dst, 0, src.length/2);
+
+		return dst;
+	}
+
+	private byte[] mono2stereo(byte[] src) {
+
+		ByteBuffer sbf = ByteBuffer.allocate(src.length);
+		sbf.put(src);
+
+		ByteBuffer dst = ByteBuffer.allocate(src.length*2);
+		while(sbf.remaining() > 0) {
+			byte b1 = sbf.get();
+			byte b2 = sbf.get();
+			dst.put(b1);
+			dst.put(b2);
+			dst.put(b1);
+			dst.put(b2);
+		}
+
+		return dst.array();
+	}
+
 }

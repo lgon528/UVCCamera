@@ -24,7 +24,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.serenegiant.usbcameratest0" >
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission
+        android:name="android.permission.USB_PERMISSION" />
 
+    <uses-permission
+        android:name="android.permission.CAMERA" />
+
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
+    <permission android:name="android.hardware.usb.host" ></permission>
+
+    <uses-feature android:name="android.hardware.usb.host" android:required="true" />
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"

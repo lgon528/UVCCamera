@@ -19,6 +19,7 @@
 
 /* Start with debug message logging enabled */
 /* #undef ENABLE_DEBUG_LOGGING */
+#define ENABLE_DEBUG_LOGGING
 
 /* Message logging */
 #define ENABLE_LOGGING

@@ -25,10 +25,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#define LOCAL_DEBUG 0
+#define LOCAL_DEBUG 1 //we're here, original 0
 
 #define LOG_TAG "libusb/usbfs"
-#if 1	// デバッグ情報を出さない時1
+#if 0	// デバッグ情報を出さない時1
 	#ifndef LOG_NDEBUG
 		#define	LOG_NDEBUG		// LOGV/LOGD/MARKを出力しない時
 		#endif

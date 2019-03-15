@@ -2123,10 +2123,14 @@ int API_EXPORTED libusb_init2(libusb_context **context, const char *usbfs) {
 			LOGD("call usbi_backend->init");
 			if (usbi_backend->init) {
 				r = usbi_backend->init(ctx);
-				if (UNLIKELY(r))
+				if (UNLIKELY(r)){
+					LOGE("failed to call usbi_backend->init, err=%d", r);
 					goto err_free_ctx;
-			} else
+				}
+			} else {
+				LOGE("has no usbi_backend->init");
 				goto err_free_ctx;
+			}
 		}
 
 		r = usbi_io_init(ctx);

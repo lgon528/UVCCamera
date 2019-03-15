@@ -45,7 +45,7 @@
 #define LOCAL_DEBUG 0
 
 #define LOG_TAG "libuvc/stream"
-#if 1	// デバッグ情報を出さない時1
+#if 0	// デバッグ情報を出さない時1
 	#ifndef LOG_NDEBUG
 		#define	LOG_NDEBUG		// LOGV/LOGD/MARKを出力しない時
 		#endif
@@ -125,19 +125,24 @@ static uint8_t _uvc_frame_format_matches_guid(enum uvc_frame_format fmt,
 	struct format_table_entry *format;
 	int child_idx;
 
+	ENTER();
 	format = _get_format_entry(fmt);
 	if (UNLIKELY(!format))
-		return 0;
+	    RETURN(0, uint8_t);
+		//return 0;
 
 	if (!format->abstract_fmt && !memcmp(guid, format->guid, 16))
-		return 1;
+	    RETURN(1, uint8_t);
+		//return 1;
 
 	for (child_idx = 0; child_idx < format->children_count; child_idx++) {
 		if (_uvc_frame_format_matches_guid(format->children[child_idx], guid))
-			return 1;
+	        RETURN(1, uint8_t);
+			//return 1;
 	}
 
-	return 0;
+	RETURN(0, uint8_t);
+	//return 0;
 }
 
 static enum uvc_frame_format uvc_frame_format_for_guid(uint8_t guid[16]) {
@@ -796,6 +801,7 @@ static inline void _uvc_process_payload_iso(uvc_stream_handle_t *strmh, struct l
 			MARK("zero packet (transfer):");
 			continue;
 		}
+		LOGE("we're here, uvc onframe, pkg len: %d|%d", pkg->length, pkg->actual_length);
 		// libusb_get_iso_packet_buffer_simple will return NULL
 		uint8_t *pktbuf = libusb_get_iso_packet_buffer_simple(transfer, packet_id);
 		_uvc_process_payload(strmh, pktbuf, pkt->actual_length);
@@ -1302,6 +1308,7 @@ uvc_error_t uvc_stream_open_ctrl(uvc_device_handle_t *devh,
 	uvc_error_t ret;
 
 	UVC_ENTER();
+	LOGE("we're here, interface %d", ctrl->bInterfaceNumber);
 
 	if (UNLIKELY(_uvc_get_stream_by_interface(devh, ctrl->bInterfaceNumber) != NULL)) {
 		ret = UVC_ERROR_BUSY; /* Stream is already opened */
@@ -1323,6 +1330,7 @@ uvc_error_t uvc_stream_open_ctrl(uvc_device_handle_t *devh,
 	strmh->stream_if = stream_if;
 	strmh->frame.library_owns_data = 1;
 
+	LOGE("we're here, strmh interface %d", strmh->stream_if->bInterfaceNumber);
 	ret = uvc_claim_if(strmh->devh, strmh->stream_if->bInterfaceNumber);
 	if (UNLIKELY(ret != UVC_SUCCESS))
 		goto fail;
@@ -1537,7 +1545,7 @@ uvc_error_t uvc_stream_start_bandwidth(uvc_stream_handle_t *strmh,
 		} */
 
 		/* Select the altsetting */
-		MARK("Select the altsetting");
+		MARK("Select the altsetting, interface %d, altsetting %d", altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
 		ret = libusb_set_interface_alt_setting(strmh->devh->usb_devh,
 				altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
 		if (UNLIKELY(ret != UVC_SUCCESS)) {
@@ -1862,7 +1870,7 @@ uvc_error_t uvc_stream_stop(uvc_stream_handle_t *strmh) {
 void uvc_stream_close(uvc_stream_handle_t *strmh) {
 	UVC_ENTER();
 
-	if (!strmh) { UVC_EXIT_VOID() };
+	if (!strmh) { UVC_EXIT_VOID(); };
 
 	if (strmh->running)
 		uvc_stream_stop(strmh);

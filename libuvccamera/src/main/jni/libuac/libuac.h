@@ -126,7 +126,7 @@ public:
 
     int getConfig();
     void scanControlInterface();
-    void scanAudioInterface();
+    void scanStreamInterface();
 
 private:
     int _startStreaming();
@@ -150,6 +150,7 @@ public:
     std::string deviceName_;
     std::shared_ptr<UACInterface> ctrlIf_;
     std::map<int, std::shared_ptr<UACInterface>> streamIfs_;
+    std::shared_ptr<UACInterface> selectedIf_;
 };
 
 
@@ -164,14 +165,15 @@ public:
         return instance;
     }
 
-    int init();
-    int unInit();
+    int init(std::string usbfs);
+    int destroy();
     std::shared_ptr<UACDevice> findDevice(const int vid, const int pid, 
-                        const std::string sn, int fd, int busnum, int devaddr);
+                        int fd, int busnum, int devaddr, const std::string sn, std::string usbfs);
     std::map<std::string, std::shared_ptr<UACDevice>> getDevices();
 
     bool isAnyDeviceOpened();
     void startThread();
+    void dumpDevices();
 
 private:
     libusb_context *usbContext_;
