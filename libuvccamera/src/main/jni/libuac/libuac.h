@@ -100,13 +100,14 @@ struct AudioStreamSpecific {
 
 class UACInterface {
 public:
+    int claim(libusb_device_handle *devHandle);
+    int release(libusb_device_handle *devHandle);
+
+public:
     const libusb_interface_descriptor *ifDescr_;
     const libusb_endpoint_descriptor *epDescr_;
 
     AudioStreamSpecific asSpecific_;
-
-public:
-    int claim(libusb_device_handle *devHandle);
 };
 
 class IAudioStreamCallback {
@@ -128,6 +129,23 @@ public:
     void scanControlInterface();
     void scanStreamInterface();
 
+    int getSampleRate();
+    std::string getSupportSampleRates();
+    int setSampleRate(int sampleRate);
+
+    int getChannelCount();
+    int getBitResolution();
+
+    bool isVolumeAvailable();
+    int getVolume();
+    int getMaxVolume();
+    int setVolume(int volume);
+
+    bool isMuteAvailable();
+    int setMute(bool isMute);
+    bool isMute();
+
+
 private:
     int _startStreaming();
     int _stopStreaming();
@@ -135,22 +153,22 @@ private:
     int _parseAudioStreamSpecific(std::shared_ptr<UACInterface> interface, const unsigned char *extra, const int len);
     void _transfer();
 
+
 public:
     int venderId_;
     int productId_;
-
     bool isOpened_;
     bool isRecording_;
+    std::string deviceName_;
     std::string recordFilePath_;
-    std::shared_ptr<IAudioStreamCallback> frameCallback_;
+    std::shared_ptr<IAudioStreamCallback> streamCallback_;
+    std::shared_ptr<UACInterface> ctrlIf_;
+    std::map<int, std::shared_ptr<UACInterface>> streamIfs_;
+    std::shared_ptr<UACInterface> selectedIf_;
 
     libusb_device *usbDevice_;
     libusb_device_handle *usbDeviceHandle_;
     libusb_config_descriptor *config_;
-    std::string deviceName_;
-    std::shared_ptr<UACInterface> ctrlIf_;
-    std::map<int, std::shared_ptr<UACInterface>> streamIfs_;
-    std::shared_ptr<UACInterface> selectedIf_;
 };
 
 

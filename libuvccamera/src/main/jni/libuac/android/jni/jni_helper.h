@@ -9,10 +9,11 @@
 #include <pthread.h>
 
 #include <string>
+#include <map>
 
-#define LOOPER_API
+#define EXPORTED_API
 
-class LOOPER_API ScopedJEnv {
+class EXPORTED_API ScopedJEnv {
 public:
     ScopedJEnv(jint capacity = 16);
 
@@ -26,7 +27,7 @@ private:
     JNIEnv *env_;
 };
 
-class LOOPER_API ScopedJString {
+class EXPORTED_API ScopedJString {
 public:
     ScopedJString(JNIEnv *env, jstring str);
 
@@ -51,7 +52,7 @@ private:
     bool keepJstr_ = false;
 };
 
-class LOOPER_API ScopedByteArray {
+class EXPORTED_API ScopedByteArray {
 public:
     ScopedByteArray(JNIEnv *env, jbyteArray array);
 
@@ -70,7 +71,7 @@ private:
     bool jarray2data_;
 };
 
-class LOOPER_API ScopedJStringArray {
+class EXPORTED_API ScopedJStringArray {
 public:
     ScopedJStringArray(JNIEnv *jEnv, jsize size);
 
@@ -85,7 +86,7 @@ private:
     jobjectArray jarray_;
 };
 
-class LOOPER_API JniHelper {
+class EXPORTED_API JniHelper {
     friend class ScopedJEnv;
 
 public:
@@ -101,6 +102,20 @@ public:
 private:
     static JavaVM *sJvm;
     static pthread_key_t sKey;
+};
+
+
+class EXPORTED_API ArrayListJni {
+public:
+    static bool InitIDs(JNIEnv *env);
+    static jobject NewArrayList();
+    static bool Add(jobject listObj, jobject obj);
+    static jobject Get(jobject listObj, int i);
+    static int Size(jobject listObj);
+
+public:
+    static jclass jcls_;
+    static std::map<std::string, jmethodID> methodIdMap_;
 };
 
 

@@ -20,6 +20,8 @@ namespace libuac {
     }
 
     IAudioStreamCallbackJni::~IAudioStreamCallbackJni() {
+        std::lock_guard<std::mutex> localLock(mutex_);
+
         ScopedJEnv scopedJEnv;
         scopedJEnv.GetEnv()->DeleteGlobalRef(cbObj_);
     }
@@ -50,6 +52,8 @@ namespace libuac {
 
 
     void IAudioStreamCallbackJni::onStreaming(Bytes data) {
+
+        std::lock_guard<std::mutex> localLock(mutex_);
         LOGD("begin to callback onStreaming, size: %d", data.size());
         if(cbObj_ != nullptr) {
             ScopedJEnv scopedJEnv;

@@ -3,6 +3,9 @@ package com.serenegiant.usb;
 import android.text.TextUtils;
 import android.util.Log;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Created by forrestluo on 2019/2/21.
  */
@@ -15,6 +18,20 @@ public class UACAudio {
 
     private long nativePtr = 0;
     private USBMonitor.UsbControlBlock controlBlock;
+
+    // control params
+    private boolean isMuteAvailable = false;
+    private boolean isMute = false;
+
+    private int sampleRate = 0;
+    private String supportedSampleRates = "";
+
+    private int volume = 0;
+    private int maxVolume = 100;
+    private boolean isVolumeAvailable = false;
+
+    private int bitResolution = 0;
+    private int channelCount = 0;
 
     static {
         System.loadLibrary("uac");
@@ -32,6 +49,22 @@ public class UACAudio {
                         controlBlock.getDevNum(),
                         controlBlock.getSerial(),
                         getUSBFSName(controlBlock));
+
+                if(nativePtr != 0) {
+                    sampleRate = nativeGetSampleRate(nativePtr);
+                    supportedSampleRates = nativeGetSupportSampleRates(nativePtr);
+
+                    isMuteAvailable = nativeIsMuteAvailable(nativePtr);
+                    isMute = nativeIsMute(nativePtr);
+
+                    isVolumeAvailable = nativeIsVolumeAvailable(nativePtr);
+                    volume = nativeGetVolume(nativePtr);
+                    maxVolume = nativeGetMaxVolume(nativePtr);
+
+                    bitResolution = nativeGetBitResolution(nativePtr);
+
+                    channelCount = nativeGetChannelCount(nativePtr);
+                }
             }
         } catch (final Exception e) {
             e.printStackTrace();
@@ -43,7 +76,7 @@ public class UACAudio {
     }
 
     public synchronized int open() {
-        Log.d(TAG, "open device");
+        Log.i(TAG, "open device");
         if(nativePtr == 0) {
             Log.e(TAG, "invalid device");
             return -1;
@@ -53,24 +86,132 @@ public class UACAudio {
     }
 
     public synchronized int close() {
-        Log.d(TAG, "close device");
+        Log.i(TAG, "close device");
         return nativeCloseDevice(nativePtr);
     }
 
+    public synchronized int getBitResolution() {
+        Log.v(TAG, "getBitResolution");
+
+        return bitResolution;
+    }
+
+    public synchronized List<Integer> getSupportSampleRates() {
+        Log.v(TAG, "getSupportSampleRate");
+
+        return parseSampleRates(supportedSampleRates);
+    }
+
+    public synchronized int getSampleRate() {
+        Log.v(TAG, "getSampleRate");
+
+        return sampleRate;
+    }
+
+    public synchronized int setSampleRate(int sampleRate) {
+
+        Log.i(TAG, "setSampleRate " + sampleRate);
+
+        int ret = nativeSetSampleRate(nativePtr, sampleRate);
+        if(ret != 0) return ret;
+
+        this.sampleRate = sampleRate;
+        return 0;
+    }
+
+    public synchronized boolean isMuteAvailable() {
+        Log.v(TAG, "isMuteAvailable");
+
+        return isMuteAvailable;
+    }
+    
+    public synchronized boolean isMute() {
+        Log.v(TAG, "isMute");
+        return isMute;
+    }
+
+    public synchronized int setMute(boolean isMute) {
+        Log.i(TAG, "setMute " + isMute);
+
+        int ret = nativeSetMute(nativePtr, isMute);
+        if(ret != 0) return ret;
+
+        this.isMute = isMute;
+
+        return 0;
+    }
+
+    public synchronized int getChannelCount() {
+        Log.v(TAG, "getChannelCount");
+
+        return channelCount;
+    }
+
+    public synchronized boolean isVolumeAvailable() {
+        Log.v(TAG, "isVolumeAvailable");
+
+        return isVolumeAvailable;
+    }
+
+    public synchronized int getVolume() {
+        Log.v(TAG, "getVolume");
+        return volume;
+    }
+
+    public synchronized int getMaxVolume() {
+        Log.v(TAG, "getMaxVolume");
+        return maxVolume;
+    }
+
+    public synchronized int setVolume(int volume) {
+        Log.i(TAG, "setVolume, " + volume);
+
+        if(volume < 0) {
+            volume = 0;
+        }
+
+        if(volume > maxVolume) {
+            volume = maxVolume;
+        }
+
+        int ret = nativeSetVolume(nativePtr, volume);
+        if(ret != 0) return ret;
+
+        this.volume = volume;
+
+        return 0;
+    }
 //
 //    public synchronized int startRecord(String path) {
-//        Log.d(TAG, "startRecord");
+//        Log.v(TAG, "startRecord");
 //        return nativeStartRecord(cptr, path);
 //    }
 //
 //    public synchronized int stopRecord() {
-//        Log.d(TAG, "stopRecord");
+//        Log.v(TAG, "stopRecord");
 //        return nativeStopRecord(cptr);
 //    }
 
     public synchronized void setAudioStreamCallback(IAudioStreamCallback cb) {
-        Log.d(TAG, "setAudioStreamCallback, cb: " + cb);
+        Log.v(TAG, "setAudioStreamCallback, cb: " + cb);
         nativeSetAudioStreamCallback(nativePtr, cb);
+    }
+
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("[")
+            .append("supportSampleRates:").append(supportedSampleRates).append(",")
+            .append("sampleRate:").append(sampleRate).append(",")
+            .append("bitResolution:").append(bitResolution).append(",")
+            .append("channelCount:").append(channelCount).append(",")
+            .append("isMuteAvailable:").append(isMuteAvailable).append(",")
+            .append("isMute:").append(isMute).append(",")
+            .append("isVolumeAvailable:").append(isVolumeAvailable).append(",")
+            .append("volume:").append(volume).append(",")
+            .append("maxVolume:").append(maxVolume)
+            .append("]");
+
+        return sb.toString();
     }
 
     private final String getUSBFSName(final USBMonitor.UsbControlBlock ctrlBlock) {
@@ -90,11 +231,51 @@ public class UACAudio {
         return result;
     }
 
+    private List<Integer> parseSampleRates(String rates) {
+        List<Integer> sampleRates = new ArrayList<>();
+
+        if(!TextUtils.isEmpty(rates)) {
+            String[] rs = rates.split(",");
+            for (String s : rs) {
+                if (TextUtils.isDigitsOnly(s)) {
+                    sampleRates.add(Integer.valueOf(s));
+                }
+            }
+        }
+
+        return sampleRates;
+    }
+
+    // device operation
     private native int nativeInit(String usbfs);
     private native long nativeGetDevice(int vid, int pid, int fd, int busnum, int devaddr, String sn, String usbfs);
     private native int nativeOpenDevice(long nativeptr);
     private native int nativeCloseDevice(long nativeptr);
+    private native void nativeSetAudioStreamCallback(long nativeptr, IAudioStreamCallback cb);
+
+    // record function
     private native int nativeStartRecord(long nativeptr, String path);
     private native int nativeStopRecord(long nativeptr);
-    private native void nativeSetAudioStreamCallback(long nativeptr, IAudioStreamCallback cb);
+
+    // bit resolution
+    private native int nativeGetBitResolution(long nativePtr);
+
+    // channel count
+    private native int nativeGetChannelCount(long nativePtr);
+
+    // sample rate
+    private native int nativeGetSampleRate(long nativePtr);
+    private native int nativeSetSampleRate(long nativePtr, int sampleRate);
+    private native String nativeGetSupportSampleRates(long nativePtr);
+
+    // mute
+    private native boolean nativeIsMuteAvailable(long nativePtr);
+    private native boolean nativeIsMute(long nativePtr);
+    private native int nativeSetMute(long nativePtr, boolean isMute);
+
+    // volume
+    private native boolean nativeIsVolumeAvailable(long nativePtr);
+    private native int nativeGetVolume(long nativePtr);
+    private native int nativeSetVolume(long nativePtr, int volume);
+    private native int nativeGetMaxVolume(long nativePtr);
 }

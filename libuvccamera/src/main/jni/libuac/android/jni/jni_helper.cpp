@@ -3,6 +3,7 @@
  */
 
 #include "jni_helper.h"
+#include "utilbase.h"
 #include <android/log.h>
 #include <assert.h>
 
@@ -284,4 +285,117 @@ const std::string &ScopedByteArray::GetData() const {
 //    }
 
     return data_;
+}
+
+
+jclass ArrayListJni::jcls_;
+std::map<std::string, jmethodID> ArrayListJni::methodIdMap_;
+bool ArrayListJni::InitIDs(JNIEnv *env){
+    if(jcls_){
+        return true;
+    }
+
+    jclass cls = env->FindClass("java/util/ArrayList");
+    if(cls == nullptr){
+        LOGE("JNI Error!! ArrayList class not found");
+        return false;
+    }
+    jcls_ = (jclass)env->NewGlobalRef(cls);
+
+    jmethodID jmethod = nullptr;
+
+    jmethod = env->GetMethodID(jcls_, "<init>", "()V");
+    if(jmethod == nullptr){
+        LOGE("JNI Error!! ArrayList constructor method not found");
+        return false;
+    }
+    methodIdMap_["constructor"] = jmethod;
+
+
+    jmethod = env->GetMethodID(cls, "add", "(Ljava/lang/Object;)Z");
+    if(jmethod == nullptr){
+        LOGE("JNI Error!! ArrayList add method not found");
+        return false;
+    }
+    methodIdMap_["add"] = jmethod;
+
+    jmethod = env->GetMethodID(cls, "get", "(I)Ljava/lang/Object;");
+    if(jmethod == nullptr){
+        LOGE("JNI Error!! ArrayList get method not found");
+        return false;
+    }
+    methodIdMap_["get"] = jmethod;
+
+    jmethod = env->GetMethodID(cls, "size", "()I");
+    if(jmethod == nullptr){
+        LOGE("JNI Error!! ArrayList size method not found");
+        return false;
+    }
+    methodIdMap_["size"] = jmethod;
+
+    return true;
+
+}
+
+jobject ArrayListJni::NewArrayList(){
+    ScopedJEnv scopedJEnv;
+    auto env = scopedJEnv.GetEnv();
+
+    if(!InitIDs(env)){
+        LOGE("JNI Error!! ArrayListJni init failed");
+        return nullptr;
+    }
+
+    jobject listObj = env->NewObject(jcls_, methodIdMap_["constructor"]);
+    return listObj;
+}
+
+bool ArrayListJni::Add(jobject listObj, jobject obj){
+
+    ScopedJEnv scopedJEnv;
+    auto env = scopedJEnv.GetEnv();
+
+    if(!InitIDs(env)){
+        LOGE("JNI Error!! ArrayListJni init failed");
+        return false;
+    }
+
+    if(!listObj || !obj) return false;
+
+    return env->CallBooleanMethod(listObj, methodIdMap_["add"], obj);
+}
+
+jobject ArrayListJni::Get(jobject listObj, int i){
+
+    ScopedJEnv scopedJEnv;
+    auto env = scopedJEnv.GetEnv();
+
+    if(!InitIDs(env)){
+        LOGE("JNI Error!! ArrayListJni init failed");
+        return nullptr;
+    }
+
+    if(!listObj) return nullptr;
+
+    auto size = env->CallIntMethod(listObj, methodIdMap_["size"]);
+    if(i >= size){
+        return nullptr;
+    }
+
+    return env->CallObjectMethod(listObj, methodIdMap_["get"], i);
+}
+
+int ArrayListJni::Size(jobject listObj){
+
+    ScopedJEnv scopedJEnv;
+    auto env = scopedJEnv.GetEnv();
+
+    if(!InitIDs(env)){
+        LOGE("JNI Error!! ArrayListJni init failed");
+        return 0;
+    }
+
+    if(!listObj) return 0;
+
+    return env->CallIntMethod(listObj, methodIdMap_["size"]);
 }

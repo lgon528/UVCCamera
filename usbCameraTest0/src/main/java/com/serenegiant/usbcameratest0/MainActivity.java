@@ -28,6 +28,7 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.os.Bundle;
+import android.os.Environment;
 import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
@@ -46,6 +47,7 @@ import com.serenegiant.usb.USBMonitor.OnDeviceConnectListener;
 import com.serenegiant.usb.USBMonitor.UsbControlBlock;
 import com.serenegiant.usb.UVCCamera;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -240,45 +242,45 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 							mUACAudio = audio;
 						}
 
-//						final UVCCamera camera = new UVCCamera();
-//						camera.open(ctrlBlock);
-//						if (DEBUG) Log.i(TAG, "supportedSize:" + camera.getSupportedSize());
-//						mPreviewWidth = camera.getSupportedSizeList().get(0).width;
-//						mPreviewHeight = camera.getSupportedSizeList().get(0).height;
-//						try {
-//							camera.setPreviewSize(mPreviewWidth, mPreviewHeight, UVCCamera.FRAME_FORMAT_MJPEG);
-//						} catch (final IllegalArgumentException e) {
-//							try {
-//								// fallback to YUV mode
-//								camera.setPreviewSize(mPreviewWidth, mPreviewHeight, UVCCamera.DEFAULT_PREVIEW_MODE);
-//							} catch (final IllegalArgumentException e1) {
-//								Log.e(TAG, "setPreviewSize exception");
-//								e1.printStackTrace();
-//								camera.destroy();
-//								return;
-//							}
-//						}
-//						mPreviewSurface = mUVCCameraView.getHolder().getSurface();
-//						if (mPreviewSurface != null) {
-//							isActive = true;
-//							camera.setPreviewDisplay(mPreviewSurface);
-//							camera.startPreview();
-//							isPreview = true;
-//						}
-//						synchronized (mSync) {
-//							mUVCCamera = camera;
-//						}
+						final UVCCamera camera = new UVCCamera();
+						camera.open(ctrlBlock);
+						if (DEBUG) Log.i(TAG, "supportedSize:" + camera.getSupportedSize());
+						mPreviewWidth = camera.getSupportedSizeList().get(0).width;
+						mPreviewHeight = camera.getSupportedSizeList().get(0).height;
+						try {
+							camera.setPreviewSize(mPreviewWidth, mPreviewHeight, UVCCamera.FRAME_FORMAT_MJPEG);
+						} catch (final IllegalArgumentException e) {
+							try {
+								// fallback to YUV mode
+								camera.setPreviewSize(mPreviewWidth, mPreviewHeight, UVCCamera.DEFAULT_PREVIEW_MODE);
+							} catch (final IllegalArgumentException e1) {
+								Log.e(TAG, "setPreviewSize exception");
+								e1.printStackTrace();
+								camera.destroy();
+								return;
+							}
+						}
+						mPreviewSurface = mUVCCameraView.getHolder().getSurface();
+						if (mPreviewSurface != null) {
+							isActive = true;
+							camera.setPreviewDisplay(mPreviewSurface);
+							camera.startPreview();
+							isPreview = true;
+						}
+						synchronized (mSync) {
+							mUVCCamera = camera;
+						}
 
 
-//						filePath = Environment.getExternalStorageDirectory().getPath() + "/justfortest/" + System.currentTimeMillis();
-//						File file = new File(filePath);
-//						if(!file.exists()) {
-//							try {
-//								file.createNewFile();
-//							} catch (IOException e) {
-//								e.printStackTrace();
-//							}
-//						}
+						filePath = Environment.getExternalStorageDirectory().getPath() + "/justfortest/" + System.currentTimeMillis();
+						File file = new File(filePath);
+						if(!file.exists()) {
+							try {
+								file.createNewFile();
+							} catch (IOException e) {
+								e.printStackTrace();
+							}
+						}
 
 
 

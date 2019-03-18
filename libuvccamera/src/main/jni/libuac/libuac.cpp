@@ -11,6 +11,7 @@
 #include <string>
 #include <sstream>
 #include <stdlib.h>
+#include <set>
 
 namespace libuac {
 
@@ -159,8 +160,18 @@ std::shared_ptr<UACDevice> UACContext::findDevice(const int vid, const int pid, 
             return device;
         }
 
+        // select endpoint with max packet size by default
+        device->selectedIf_ = device->streamIfs_.begin()->second;
+        for(auto it = device->streamIfs_.begin(); it != device->streamIfs_.end(); it++) {
+            if(it->second->epDescr_->wMaxPacketSize > device->selectedIf_->epDescr_->wMaxPacketSize) {
+                device->selectedIf_ = it->second;
+            }
+        }
+
         devices_[key] = device;
     }
+
+
 
     return device;
 }
@@ -169,16 +180,18 @@ std::map<std::string, std::shared_ptr<UACDevice>> UACContext::getDevices() {
     return devices_;
 }
 
-int UACInterface::claim(libusb_device_handle *handle) {
+int UACInterface::claim(libusb_device_handle *devHandle) {
+
+                    LOGE("we're here, devhandle %p, ifDescr %p", devHandle, ifDescr_);
 
     LOGD("before kernel active errno:%d, %s", errno, strerror(errno));
-    int r = libusb_kernel_driver_active(handle, ifDescr_->bInterfaceNumber);
+    int r = libusb_kernel_driver_active(devHandle, ifDescr_->bInterfaceNumber);
     LOGD("libusb_kernel_driver_active, %d, errno:%d, %s", r, errno, strerror(errno));
     if(r == 1) {
         // find out if kernel driver is attached
         LOGD("Kernel Driver Active");
         // detach it
-        r = libusb_detach_kernel_driver(handle, ifDescr_->bInterfaceNumber);
+        r = libusb_detach_kernel_driver(devHandle, ifDescr_->bInterfaceNumber);
         if(r == 0)  {
             LOGD("Kernel Driver Detached!");
         } else {
@@ -188,7 +201,7 @@ int UACInterface::claim(libusb_device_handle *handle) {
     LOGD("before claim interface %d, errno:%d, %s", ifDescr_->bInterfaceNumber, errno, strerror(errno));
 
     //claim interface
-    r = libusb_claim_interface(handle, ifDescr_->bInterfaceNumber);
+    r = libusb_claim_interface(devHandle, ifDescr_->bInterfaceNumber);
     if(r != 0) {  
         LOGD("Cannot Claim Interface %d, ret %d, errno:%d, %s", ifDescr_->bInterfaceNumber, r, errno, strerror(errno));
         return r;  
@@ -196,6 +209,32 @@ int UACInterface::claim(libusb_device_handle *handle) {
     LOGD("after claim_interface %d, errno:%d, %s", ifDescr_->bInterfaceNumber, errno, strerror(errno));
 
     return 0;
+}
+
+int UACInterface::release(libusb_device_handle *devHandle) {
+    LOGD("releasing interface %d", ifDescr_->bInterfaceNumber);
+
+    int idx = ifDescr_->bInterfaceNumber;
+    int ret = libusb_release_interface(devHandle, idx);
+    if(ret != 0) {
+        LOGE("cannot release interface %d, ret %d(%s)", idx, ret, libusb_error_name(ret));
+        return ret;
+    }
+
+    /* Reattach any kernel drivers that were disabled when we claimed this interface */
+    ret = libusb_attach_kernel_driver(devHandle, idx);
+
+    if(!ret) {
+        LOGD("reattached kernel driver to interface %d", idx);
+    } else if (ret == LIBUSB_ERROR_NOT_FOUND || ret == LIBUSB_ERROR_NOT_SUPPORTED) {
+        ret = 0;  /* NOT_FOUND and NOT_SUPPORTED are OK: nothing to do */
+    } else {
+        LOGE("error reattaching kernel driver to interface %d: %s",
+            idx, libusb_error_name(ret));
+    }
+
+    return ret;
+
 }
 
 
@@ -271,6 +310,7 @@ void UACDevice::scanControlInterface() {
                         ifDescr->bInterfaceProtocol, ifDescr->iInterface, ifDescr->extra_length);
 
                 if(ifDescr->bInterfaceClass == LIBUSB_CLASS_AUDIO && ifDescr->bInterfaceSubClass == 0x1) { // audio, control
+                    LOGE("we're here, devhandle %p", usbDeviceHandle_);
                     ctrlIf_.reset(new UACInterface);
                     ctrlIf_->ifDescr_ = ifDescr;
                     ctrlIf_->epDescr_ = ifDescr->endpoint;
@@ -454,8 +494,8 @@ static void _process_payload_iso(libusb_transfer *transfer) {
         // todo save recv data to file
     }
 
-    if(device->frameCallback_) {
-        device->frameCallback_->onStreaming(recv);
+    if(device->streamCallback_) {
+        device->streamCallback_->onStreaming(recv);
     }
 
 }
@@ -501,20 +541,13 @@ static void _stream_callback(libusb_transfer *transfer)
 void UACDevice::_transfer() {
 
     LOGE("we're here, ifs size: %d", streamIfs_.size());
-    if(streamIfs_.size() <= 0){
+    if(streamIfs_.size() <= 0 || !selectedIf_){
         LOGE("no valid interfaces");
         return;
     }
 
-    auto sIf = streamIfs_.begin()->second;
-    for(auto it = streamIfs_.begin(); it != streamIfs_.end(); it++) {
-        if(it->second->epDescr_->wMaxPacketSize > sIf->epDescr_->wMaxPacketSize) {
-            sIf = it->second;
-        }
-    }
-    selectedIf_ = sIf;
-    auto interface = sIf->ifDescr_;
-    auto endpoint = sIf->epDescr_;
+    auto interface = selectedIf_->ifDescr_;
+    auto endpoint = selectedIf_->epDescr_;
 
     uint8_t endpointAddress = endpoint->bEndpointAddress;
 
@@ -592,7 +625,12 @@ int UACDevice::_stopStreaming() {
 int UACDevice::close() {
     isOpened_ = false;
     isRecording_ = false;
-    libusb_release_interface(usbDeviceHandle_, selectedIf_->ifDescr_->bInterfaceNumber);
+
+    ctrlIf_->release(usbDeviceHandle_);
+    for(auto it = streamIfs_.begin(); it != streamIfs_.end(); it++ ) {
+        it->second->release(usbDeviceHandle_);
+    }
+
     libusb_close(usbDeviceHandle_);
     libusb_unref_device(usbDevice_);
 
@@ -625,7 +663,88 @@ int UACDevice::stopRecord() {
 }
 
 void UACDevice::setAudioStreamCallback(std::shared_ptr<IAudioStreamCallback> cb) {
-    frameCallback_ = cb;
+    streamCallback_ = cb;
+}
+
+int UACDevice::getSampleRate() {
+    if(!selectedIf_) return 0;
+
+    return selectedIf_->asSpecific_.formatTypeIDescr_.tSamFreq;
+}
+
+std::string UACDevice::getSupportSampleRates() {
+    std::set<int> rates;
+
+    LOGE("we're here, if size: %d", streamIfs_.size());
+    for(auto it = streamIfs_.begin(); it != streamIfs_.end(); it++) {
+        auto intf = it->second;
+        rates.insert(intf->asSpecific_.formatTypeIDescr_.tSamFreq);
+
+        LOGE("we're here, rate: %d", intf->asSpecific_.formatTypeIDescr_.tSamFreq);
+    }
+
+    std::ostringstream oss;
+    for(auto it = rates.begin(); it != rates.end(); it++) {
+        oss << *it << ",";
+    }
+
+    return oss.str();
+}
+
+
+int UACDevice::setSampleRate(int sampleRate) {
+    // todo set sample rate
+
+    return 0;
+}
+
+int UACDevice::getChannelCount() {
+    if(!selectedIf_) return 0;
+
+    return selectedIf_->asSpecific_.formatTypeIDescr_.bNrChannels;
+}
+
+int UACDevice::getBitResolution() {
+    if(!selectedIf_) return 0;
+
+    return selectedIf_->asSpecific_.formatTypeIDescr_.bBitResolution;
+}
+
+bool UACDevice::isVolumeAvailable() {
+    // todo is volume availabel
+
+    return false;
+}
+int UACDevice::getVolume() {
+    // todo get volume
+
+    return 0;
+}
+int UACDevice::getMaxVolume() {
+    // todo get max volume
+
+    return 100;
+}
+int UACDevice::setVolume(int volume) {
+    // todo set volume
+
+    return 0;
+}
+
+bool UACDevice::isMuteAvailable() {
+    // todo is mute available
+
+    return false;
+}
+int UACDevice::setMute(bool isMute) {
+    // todo set mute
+
+    return 0;
+}
+bool UACDevice::isMute() {
+    // todo ismute
+
+    return false;
 }
 
 
