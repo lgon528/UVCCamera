@@ -221,18 +221,6 @@ int UACInterface::release(libusb_device_handle *devHandle) {
         return ret;
     }
 
-    /* Reattach any kernel drivers that were disabled when we claimed this interface */
-    ret = libusb_attach_kernel_driver(devHandle, idx);
-
-    if(!ret) {
-        LOGD("reattached kernel driver to interface %d", idx);
-    } else if (ret == LIBUSB_ERROR_NOT_FOUND || ret == LIBUSB_ERROR_NOT_SUPPORTED) {
-        ret = 0;  /* NOT_FOUND and NOT_SUPPORTED are OK: nothing to do */
-    } else {
-        LOGE("error reattaching kernel driver to interface %d: %s",
-            idx, libusb_error_name(ret));
-    }
-
     return ret;
 
 }
@@ -286,7 +274,46 @@ int UACDevice::getConfig() {
 }
 
 int UACDevice::_parseAudioControlSpecific(std::shared_ptr<UACInterface> interface, const unsigned char *extra, const int len) {
-    // todo parse audio control specific
+    if(!interface || !interface->isCtrl_) return -1;
+
+    if(len < 3) {
+        LOGE("invalid interface extra");
+        return -1;
+    }
+
+    AudioControlSpecific acSpecific;
+    int remainBytes = len;
+    while(remainBytes > 0) {
+        int pos = 0;
+        uint8_t bLength = extra[pos++];
+        uint8_t bDescriptorType = extra[pos++];
+        uint8_t bDescriptorSubtype = extra[pos++];
+
+        switch((ACSpecType)bDescriptorSubtype) {
+        case ACSpecType::FEATURE_UNIT: {
+                FeatureUnitDescriptor featureUnitDescr;
+                featureUnitDescr.bUnitID = extra[pos++];
+                featureUnitDescr.bSourceID = extra[pos++];
+                featureUnitDescr.bControlSize = extra[pos++];
+
+                if(featureUnitDescr.bControlSize > 0) {
+                    uint8_t hv = extra[pos + featureUnitDescr.bControlSize -1];
+                    uint8_t lv = extra[pos + featureUnitDescr.bControlSize -2];
+                    featureUnitDescr.wBmaControls = hv << 8 | lv;
+                }
+
+                acSpecific.featureUnitDescr_ = featureUnitDescr;
+            }
+            break;
+        default:
+            LOGI("not supported ASSpecType: %d", bDescriptorSubtype);
+            break;
+        }
+
+        remainBytes -= bLength;
+        extra = extra + bLength;
+    }
+
     return 0;
 }
 
@@ -314,6 +341,9 @@ void UACDevice::scanControlInterface() {
                     ctrlIf_.reset(new UACInterface);
                     ctrlIf_->ifDescr_ = ifDescr;
                     ctrlIf_->epDescr_ = ifDescr->endpoint;
+                    ctrlIf_->isCtrl_ = true;
+
+                    _parseAudioControlSpecific(ctrlIf_, ifDescr->extra, ifDescr->extra_length);
 
                     break;
                 }
@@ -323,6 +353,8 @@ void UACDevice::scanControlInterface() {
 }
 
 int UACDevice::_parseAudioStreamSpecific(std::shared_ptr<UACInterface> interface, const unsigned char *extra, const int len){
+    if(!interface || interface->isCtrl_) return -1;
+    
     if(len < 3) {
         LOGE("invalid interface extra");
         return -1;
@@ -337,8 +369,8 @@ int UACDevice::_parseAudioStreamSpecific(std::shared_ptr<UACInterface> interface
         uint8_t bDescriptorType = extra[pos++];
         uint8_t bDescriptorSubtype = extra[pos++];
 
-        switch((ASIDSubtype)bDescriptorSubtype) {
-        case ASIDSubtype::AS_GENERAL: {
+        switch((ASSpecType)bDescriptorSubtype) {
+        case ASSpecType::AS_GENERAL: {
                 ASGeneralInterfaceDescriptor generalDescr;
                 generalDescr.bTerminalLink = extra[pos++];
                 generalDescr.bDelay = extra[pos++];
@@ -349,7 +381,7 @@ int UACDevice::_parseAudioStreamSpecific(std::shared_ptr<UACInterface> interface
                 asSpecific.asGeneralIfDescr_ = generalDescr;
             }
             break;
-        case ASIDSubtype::FORMAT_TYPE: {
+        case ASSpecType::FORMAT_TYPE: {
                 uint8_t bFormatType = extra[pos++];
                 if((FormatType)bFormatType == FormatType::FORMAT_TYPE_I){
                     FormatTypeIDescriptor formatTypeI;
@@ -368,7 +400,7 @@ int UACDevice::_parseAudioStreamSpecific(std::shared_ptr<UACInterface> interface
             }
             break;
         default:
-            LOGI("not supported ASIDSubtype: %d", bDescriptorSubtype);
+            LOGI("not supported ASSpecType: %d", bDescriptorSubtype);
             break;
         }
 
@@ -376,7 +408,7 @@ int UACDevice::_parseAudioStreamSpecific(std::shared_ptr<UACInterface> interface
         extra = extra + bLength;
     }
 
-    interface->asSpecific_ = asSpecific;
+    interface->audioSpec_.asSpecific_ = asSpecific;
 
     return 0;
 }
@@ -415,7 +447,7 @@ void UACDevice::scanStreamInterface() {
 
                         _parseAudioStreamSpecific(interface, ifDescr->extra, ifDescr->extra_length);
 
-                        if(interface->asSpecific_.formatTypeIDescr_.bBitResolution != 0x10) { // not 16bit
+                        if(interface->audioSpec_.asSpecific_.formatTypeIDescr_.bBitResolution != 0x10) { // not 16bit
                             continue;
                         }
 
@@ -669,18 +701,15 @@ void UACDevice::setAudioStreamCallback(std::shared_ptr<IAudioStreamCallback> cb)
 int UACDevice::getSampleRate() {
     if(!selectedIf_) return 0;
 
-    return selectedIf_->asSpecific_.formatTypeIDescr_.tSamFreq;
+    return selectedIf_->audioSpec_.asSpecific_.formatTypeIDescr_.tSamFreq;
 }
 
 std::string UACDevice::getSupportSampleRates() {
     std::set<int> rates;
 
-    LOGE("we're here, if size: %d", streamIfs_.size());
     for(auto it = streamIfs_.begin(); it != streamIfs_.end(); it++) {
         auto intf = it->second;
-        rates.insert(intf->asSpecific_.formatTypeIDescr_.tSamFreq);
-
-        LOGE("we're here, rate: %d", intf->asSpecific_.formatTypeIDescr_.tSamFreq);
+        rates.insert(intf->audioSpec_.asSpecific_.formatTypeIDescr_.tSamFreq);
     }
 
     std::ostringstream oss;
@@ -701,30 +730,33 @@ int UACDevice::setSampleRate(int sampleRate) {
 int UACDevice::getChannelCount() {
     if(!selectedIf_) return 0;
 
-    return selectedIf_->asSpecific_.formatTypeIDescr_.bNrChannels;
+    return selectedIf_->audioSpec_.asSpecific_.formatTypeIDescr_.bNrChannels;
 }
 
 int UACDevice::getBitResolution() {
     if(!selectedIf_) return 0;
 
-    return selectedIf_->asSpecific_.formatTypeIDescr_.bBitResolution;
+    return selectedIf_->audioSpec_.asSpecific_.formatTypeIDescr_.bBitResolution;
 }
 
 bool UACDevice::isVolumeAvailable() {
-    // todo is volume availabel
+    auto feature = ctrlIf_->audioSpec_.acSpecific_.featureUnitDescr_;
 
-    return false;
+    return feature.wBmaControls | (int)AudioControl::VOLUME ? true : false;
 }
+
 int UACDevice::getVolume() {
     // todo get volume
 
     return 0;
 }
+
 int UACDevice::getMaxVolume() {
     // todo get max volume
 
     return 100;
 }
+
 int UACDevice::setVolume(int volume) {
     // todo set volume
 
@@ -732,19 +764,33 @@ int UACDevice::setVolume(int volume) {
 }
 
 bool UACDevice::isMuteAvailable() {
-    // todo is mute available
+    auto feature = ctrlIf_->audioSpec_.acSpecific_.featureUnitDescr_;
+
+    return feature.wBmaControls | (int)AudioControl::MUTE ? true : false;
 
     return false;
 }
+
 int UACDevice::setMute(bool isMute) {
     // todo set mute
 
     return 0;
 }
-bool UACDevice::isMute() {
-    // todo ismute
 
-    return false;
+bool UACDevice::isMute() {
+
+    int len = 1;
+    uint8_t buf[len];
+
+    int ret = libusb_control_transfer(usbDeviceHandle_, (uint8_t)AudioControlRequestType::GET_REQUEST_TO_IF,
+                (uint8_t)AudioSpecRequestCode::GET_CUR, (uint8_t)FeatureUnitControlSelector::MUTE_CONTROL << 8,
+                ctrlIf_->ifDescr_->bInterfaceNumber, buf, len, 0);
+    if(ret != 0) {
+        LOGE("get mute failed, ret %d(%s)", ret, libusb_error_name(ret));
+        return false;
+    }
+
+    return buf[0];
 }
 
 

@@ -220,6 +220,7 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 
 						UACAudio audio = new UACAudio(ctrlBlock);
 						if(audio.isValidAudioDevice()) {
+							Log.e(TAG, "we're here, device: " + audio);
 							int ret = audio.open();
 							if (ret != 0) {
 								Log.e(TAG, "open audio failed, ret: " + ret);

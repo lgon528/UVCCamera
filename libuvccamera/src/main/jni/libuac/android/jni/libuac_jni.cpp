@@ -121,7 +121,6 @@ static jint nativeSetSampleRate(JNIEnv *env, jobject thiz, jlong devPtr, jint sa
 }
 
 static jstring nativeGetSupportSampleRates(JNIEnv *env, jobject thiz, jlong devPtr) {
-    LOGE("we're here, devPtr %u", devPtr);
     if(!devPtr) {
         LOGE("invalid device");
         return nullptr;
@@ -130,7 +129,6 @@ static jstring nativeGetSupportSampleRates(JNIEnv *env, jobject thiz, jlong devP
     UACDevice *device = reinterpret_cast<UACDevice*>(devPtr);
     std::string rates = device->getSupportSampleRates();
 
-    LOGE("we're here, rates %s", rates.c_str());
     ScopedJString scopedStr(env, rates.c_str(), true);
 
     return scopedStr.GetJStr();

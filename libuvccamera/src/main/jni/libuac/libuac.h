@@ -17,7 +17,7 @@ typedef std::string Bytes;
 const int PACKETS_PER_TRANSFER = 16;
 const int NUM_TRANSFER_BUFS = 10;
 
-enum class ASIDSubtype : uint8_t {
+enum class ASSpecType : uint8_t {
     AS_DESCRIPTOR_UNDEFINED = 0x00,
     AS_GENERAL              = 0x01,
     FORMAT_TYPE             = 0x02,
@@ -98,6 +98,118 @@ struct AudioStreamSpecific {
     FormatTypeIDescriptor formatTypeIDescr_{};
 };
 
+
+enum class AudioControl: uint16_t {
+    MUTE                = 0x1,
+    VOLUME              = 0x1 << 1,
+    BASS                = 0x1 << 2,
+    MID                 = 0x1 << 3,
+    TREBLE              = 0x1 << 4,
+    GRAPHIC_EQUALIZER   = 0x1 << 5,
+    GAIN                = 0x1 << 6,
+    DELAY               = 0x1 << 7,
+    BASS_BOOST          = 0x1 << 8,
+    LOUDNESS            = 0x1 << 9,
+};
+
+enum class ACSpecType : uint8_t {
+    AC_DESCRIPTOR_UNDEFINED = 0x0,
+    HEADER                  = 0x1,
+    INPUT_TERMINAL          = 0x2,
+    OUTPUT_TERMINAL         = 0x3,
+    MIXER_UNIT              = 0x4,
+    SELECTOR_UNIT           = 0x5,
+    FEATURE_UNIT            = 0x6,
+    PROCESSING_UNIT         = 0x7,
+    EXTENSION_UNIT          = 0x8,
+};
+
+
+enum class AudioControlRequestType : uint8_t {
+    SET_REQUEST_TO_IF = 0x21,
+    SET_REQUEST_TO_EP = 0x22,
+    GET_REQUEST_TO_IF = 0xA1,
+    GET_REQUEST_TO_EP = 0xA2,
+};
+
+enum class AudioSpecRequestCode : uint8_t {
+    REQUEST_CODE_UNDEFINED  = 0x00,
+    SET_CUR                 = 0x01,
+    GET_CUR                 = 0x81,
+
+    SET_MIN                 = 0x02,
+    GET_MIN                 = 0x82,
+
+    SET_MAX                 = 0x03,
+    GET_MAX                 = 0x83,
+
+    SET_RES                 = 0x04,
+    GET_RES                 = 0x84,
+
+    SET_MEM                 = 0x05,
+    GET_MEM                 = 0x85,
+
+    GET_STAT                = 0xFF,
+};
+
+enum class FeatureUnitControlSelector : uint8_t {
+    FU_CONTROL_UNDEFINED        = 0x00,
+    MUTE_CONTROL                = 0x01,
+    VOLUME_CONTROL              = 0x02,
+    BASS_CONTROL                = 0x03,
+    MID_CONTROL                 = 0x04,
+    TREBLE_CONTROL              = 0x05,
+    GRAPHIC_EQUALIZER_CONTROL   = 0x06,
+    AUTOMATIC_GAIN_CONTROL      = 0x07,
+    DELAY_CONTROL               = 0x08,
+    BASS_BOOST_CONTROL          = 0x09,
+    LOUDNESS_CONTROL            = 0x0A,
+};
+
+struct FeatureUnitDescriptor {
+    /**
+    Constant uniquely identifying the Unit within the audio function. This value is used in all requests to address this Unit.
+    */
+    uint8_t bUnitID;
+
+    /**
+    ID of the Unit or Terminal to which this Feature Unit is connected.
+    */
+    uint8_t bSourceID;
+
+    /**
+    Size in bytes of an element of the bmaControls() array: n
+    */
+    uint8_t bControlSize;
+
+    /**
+    A bit set to 1 indicates that the mentioned Control is supported for master channel 0:
+        D0: Mute
+        D1: Volume
+        D2: Bass
+        D3: Mid
+        D4: Treble
+        D5: Graphic Equalizer
+        D6: Automatic Gain
+        D7: Delay
+        D8: Bass Boost
+        D9: Loudness
+        D10..(n*8-1): Reserved
+    */
+    uint16_t wBmaControls;
+};
+
+struct AudioControlSpecific {
+    FeatureUnitDescriptor featureUnitDescr_;
+};
+
+
+union AudioSpecific {
+    AudioSpecific() {}
+    AudioStreamSpecific asSpecific_;
+    AudioControlSpecific acSpecific_;
+};
+
 class UACInterface {
 public:
     int claim(libusb_device_handle *devHandle);
@@ -107,7 +219,8 @@ public:
     const libusb_interface_descriptor *ifDescr_;
     const libusb_endpoint_descriptor *epDescr_;
 
-    AudioStreamSpecific asSpecific_;
+    bool isCtrl_ = false;
+    AudioSpecific audioSpec_;
 };
 
 class IAudioStreamCallback {
