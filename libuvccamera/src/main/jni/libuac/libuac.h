@@ -252,6 +252,7 @@ public:
     bool isVolumeAvailable();
     int getVolume();
     int getMaxVolume();
+    int getMinVolume();
     int setVolume(int volume);
 
     bool isMuteAvailable();
@@ -265,6 +266,7 @@ private:
     int _parseAudioControlSpecific(std::shared_ptr<UACInterface> interface, const unsigned char *extra, const int len);
     int _parseAudioStreamSpecific(std::shared_ptr<UACInterface> interface, const unsigned char *extra, const int len);
     void _transfer();
+    int _getVolumeRequest(AudioSpecRequestCode requestCode);
 
 
 public:

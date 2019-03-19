@@ -27,11 +27,14 @@ public class UACAudio {
     private String supportedSampleRates = "";
 
     private int volume = 0;
+    private int minVolume = 0;
     private int maxVolume = 100;
     private boolean isVolumeAvailable = false;
 
     private int bitResolution = 0;
     private int channelCount = 0;
+
+    private boolean isOpened = false;
 
     static {
         System.loadLibrary("uac");
@@ -53,16 +56,9 @@ public class UACAudio {
                 if(nativePtr != 0) {
                     sampleRate = nativeGetSampleRate(nativePtr);
                     supportedSampleRates = nativeGetSupportSampleRates(nativePtr);
-
                     isMuteAvailable = nativeIsMuteAvailable(nativePtr);
-                    isMute = nativeIsMute(nativePtr);
-
                     isVolumeAvailable = nativeIsVolumeAvailable(nativePtr);
-                    volume = nativeGetVolume(nativePtr);
-                    maxVolume = nativeGetMaxVolume(nativePtr);
-
                     bitResolution = nativeGetBitResolution(nativePtr);
-
                     channelCount = nativeGetChannelCount(nativePtr);
                 }
             }
@@ -82,12 +78,39 @@ public class UACAudio {
             return -1;
         }
 
-        return nativeOpenDevice(nativePtr);
+        int ret = nativeOpenDevice(nativePtr);
+        if(ret != 0) {
+            Log.e(TAG, "open device failed, ret: " + ret);
+            return ret;
+        }
+
+        isMute = nativeIsMute(nativePtr);
+        volume = nativeGetVolume(nativePtr);
+        maxVolume = nativeGetMaxVolume(nativePtr);
+        minVolume = nativeGetMinVolume(nativePtr);
+
+        isOpened = true;
+
+        return 0;
     }
 
     public synchronized int close() {
         Log.i(TAG, "close device");
-        return nativeCloseDevice(nativePtr);
+
+        if (controlBlock != null) {
+            controlBlock.close();
+            controlBlock = null;
+        }
+
+        int ret = nativeCloseDevice(nativePtr);
+        if(ret != 0) {
+            Log.e(TAG, "close device failed");
+            return ret;
+        }
+
+        isOpened = false;
+
+        return 0;
     }
 
     public synchronized int getBitResolution() {
@@ -154,12 +177,17 @@ public class UACAudio {
     }
 
     public synchronized int getVolume() {
-        Log.v(TAG, "getVolume");
+        Log.v(TAG, "getVolume, " + volume);
         return volume;
     }
 
+    public synchronized int getMinVolume() {
+        Log.v(TAG, "getMinVolume, " + minVolume);
+        return minVolume;
+    }
+
     public synchronized int getMaxVolume() {
-        Log.v(TAG, "getMaxVolume");
+        Log.v(TAG, "getMaxVolume, " + maxVolume);
         return maxVolume;
     }
 
@@ -207,6 +235,7 @@ public class UACAudio {
             .append("isMuteAvailable:").append(isMuteAvailable).append(",")
             .append("isMute:").append(isMute).append(",")
             .append("isVolumeAvailable:").append(isVolumeAvailable).append(",")
+            .append("minVolume:").append(minVolume).append(",")
             .append("volume:").append(volume).append(",")
             .append("maxVolume:").append(maxVolume)
             .append("]");
@@ -278,4 +307,5 @@ public class UACAudio {
     private native int nativeGetVolume(long nativePtr);
     private native int nativeSetVolume(long nativePtr, int volume);
     private native int nativeGetMaxVolume(long nativePtr);
+    private native int nativeGetMinVolume(long nativePtr);
 }

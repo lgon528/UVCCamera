@@ -163,9 +163,7 @@ static jint nativeSetMute(JNIEnv *env, jobject thiz, jlong devPtr, jboolean isMu
     }
 
     UACDevice *device = reinterpret_cast<UACDevice*>(devPtr);
-    // todo nativeSetMute
-
-    return 0;
+    return device->setMute(isMute);
 }
 
 static jboolean nativeIsVolumeAvailable(JNIEnv *env, jobject thiz, jlong devPtr) {
@@ -201,6 +199,16 @@ static jint nativeGetMaxVolume(JNIEnv *env, jobject thiz, jlong devPtr) {
     return device->getMaxVolume();
 }
 
+static jint nativeGetMinVolume(JNIEnv *env, jobject thiz, jlong devPtr) {
+    if(!devPtr) {
+        LOGE("invalid device");
+        return -1;
+    }
+
+    UACDevice *device = reinterpret_cast<UACDevice*>(devPtr);
+    return device->getMinVolume();
+}
+
 static jint nativeSetVolume(JNIEnv *env, jobject thiz, jlong devPtr, jint volume) {
     if(!devPtr) {
         LOGE("invalid device");
@@ -208,9 +216,7 @@ static jint nativeSetVolume(JNIEnv *env, jobject thiz, jlong devPtr, jint volume
     }
 
     UACDevice *device = reinterpret_cast<UACDevice*>(devPtr);
-    // todo nativeSetVolume
-
-    return 0;
+    return device->setVolume(volume);
 }
 
 const static std::string gClassName = "com/serenegiant/usb/UACAudio";
@@ -246,6 +252,7 @@ const static JNINativeMethod methods[] = {
     {"nativeIsVolumeAvailable", "(J)Z", (void*)nativeIsVolumeAvailable},
     {"nativeGetVolume", "(J)I", (void*)nativeGetVolume},
     {"nativeGetMaxVolume", "(J)I", (void*)nativeGetMaxVolume},
+    {"nativeGetMinVolume", "(J)I", (void*)nativeGetMinVolume},
     {"nativeSetVolume", "(JI)I", (void*)nativeSetVolume},
 };
 

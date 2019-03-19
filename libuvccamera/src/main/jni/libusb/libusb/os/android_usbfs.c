@@ -1772,7 +1772,7 @@ static int release_interface(struct libusb_device_handle *handle, int iface) {
 	if (UNLIKELY(r)) {
 		if (errno == ENODEV) {
 			RETURN(LIBUSB_ERROR_NO_DEVICE, int);
-	}
+		}
 		LOGE("release interface failed, error %d errno %d", r, errno);
 		RETURN(LIBUSB_ERROR_OTHER, int);
 	}

@@ -3,9 +3,9 @@
 //
 
 #include "libuac.h"
-#include "../utilbase.h"
-#include "../libusb/libusb/libusb.h"
 #include "utils.h"
+#include "utilbase.h"
+#include "libusb/libusb/libusb.h"
 
 #include <errno.h>    //for error handling
 #include <string>
@@ -132,7 +132,7 @@ std::shared_ptr<UACDevice> UACContext::findDevice(const int vid, const int pid, 
     LOGE("we're here, usbDevice %p", usbDevice);
     if(usbDevice){
         libusb_set_device_fd(usbDevice, fd);  // assign fd to libusb_device for non-rooted Android devices
-        libusb_ref_device(usbDevice);
+        //libusb_ref_device(usbDevice);
 
         device.reset(new UACDevice());
         device->usbDevice_ = usbDevice;
@@ -170,8 +170,6 @@ std::shared_ptr<UACDevice> UACContext::findDevice(const int vid, const int pid, 
 
         devices_[key] = device;
     }
-
-
 
     return device;
 }
@@ -246,10 +244,31 @@ int UACDevice::open() {
     }
     libusb_ref_device(usbDevice_);
 
+    ret = libusb_reset_device(usbDeviceHandle_);
+    if(ret != 0) {
+        LOGE("libusb_reset_device failed, ret %d(%s)", ret, libusb_error_name(ret));
+    }
+
     // claim interface
     ctrlIf_->claim(usbDeviceHandle_);
-    for(auto it = streamIfs_.begin(); it != streamIfs_.end(); it++) {
-        it->second->claim(usbDeviceHandle_);
+    ret = libusb_set_interface_alt_setting(usbDeviceHandle_, ctrlIf_->ifDescr_->bInterfaceNumber, ctrlIf_->ifDescr_->bAlternateSetting);
+    LOGE("we're here, interface %d, altsetting %d", ctrlIf_->ifDescr_->bInterfaceNumber, ctrlIf_->ifDescr_->bAlternateSetting);
+    if(ret < 0) {
+        LOGE("libusb_set_interface_alt_setting failed, interface %d, altsetting %d, ret %d(%s)",
+                        ctrlIf_->ifDescr_->bInterfaceNumber, ctrlIf_->ifDescr_->bAlternateSetting,
+                        ret, libusb_error_name(ret));
+        return ret;
+    }
+
+    selectedIf_->claim(usbDeviceHandle_);
+    ret = libusb_set_interface_alt_setting(usbDeviceHandle_, selectedIf_->ifDescr_->bInterfaceNumber, selectedIf_->ifDescr_->bAlternateSetting);
+    LOGE("we're here, interface %d, altsetting %d", selectedIf_->ifDescr_->bInterfaceNumber, selectedIf_->ifDescr_->bAlternateSetting);
+    if(ret < 0) {
+        LOGE("libusb_set_interface_alt_setting failed, interface %d, altsetting %d, ret %d(%s)",
+                        selectedIf_->ifDescr_->bInterfaceNumber, selectedIf_->ifDescr_->bAlternateSetting,
+                        ret, libusb_error_name(ret));
+        return ret;
+
     }
 
     isOpened_ = true;
@@ -258,6 +277,19 @@ int UACDevice::open() {
 
     // start to fetch audio data
     _startStreaming();
+
+    return 0;
+}
+
+int UACDevice::close() {
+    isOpened_ = false;
+    isRecording_ = false;
+
+    ctrlIf_->release(usbDeviceHandle_);
+    selectedIf_->release(usbDeviceHandle_);
+
+    libusb_close(usbDeviceHandle_);
+    libusb_unref_device(usbDevice_);
 
     return 0;
 }
@@ -313,6 +345,8 @@ int UACDevice::_parseAudioControlSpecific(std::shared_ptr<UACInterface> interfac
         remainBytes -= bLength;
         extra = extra + bLength;
     }
+
+    interface->audioSpec_.acSpecific_ = acSpecific;
 
     return 0;
 }
@@ -578,7 +612,6 @@ void UACDevice::_transfer() {
         return;
     }
 
-    auto interface = selectedIf_->ifDescr_;
     auto endpoint = selectedIf_->epDescr_;
 
     uint8_t endpointAddress = endpoint->bEndpointAddress;
@@ -595,17 +628,6 @@ void UACDevice::_transfer() {
     size_t total_transfer_size = endpoint_bytes_per_packet * PACKETS_PER_TRANSFER;
     libusb_transfer* transfers[NUM_TRANSFER_BUFS];
     uint8_t* transfer_bufs[NUM_TRANSFER_BUFS];
-
-    // select altenatesetting
-    auto ret = libusb_set_interface_alt_setting(usbDeviceHandle_, interface->bInterfaceNumber, interface->bAlternateSetting);
-    LOGE("we're here, interface %d, altsetting %d", interface->bInterfaceNumber, interface->bAlternateSetting);
-    if(ret < 0) {
-        LOGE("libusb_set_interface_alt_setting failed, ret %d(%s)", ret, libusb_error_name(ret));
-        return;
-
-    }
-
-        LOGE("we're here");
 
     LOGD("Set up the transfers\n");
 
@@ -650,21 +672,6 @@ void UACDevice::_transfer() {
 
 
 int UACDevice::_stopStreaming() {
-
-    return 0;
-}
-
-int UACDevice::close() {
-    isOpened_ = false;
-    isRecording_ = false;
-
-    ctrlIf_->release(usbDeviceHandle_);
-    for(auto it = streamIfs_.begin(); it != streamIfs_.end(); it++ ) {
-        it->second->release(usbDeviceHandle_);
-    }
-
-    libusb_close(usbDeviceHandle_);
-    libusb_unref_device(usbDevice_);
 
     return 0;
 }
@@ -746,57 +753,65 @@ bool UACDevice::isVolumeAvailable() {
 }
 
 int UACDevice::getVolume() {
-    int len = 2;
-    uint8_t buf[len];
-
-    int ret = libusb_control_transfer(usbDeviceHandle_, (uint8_t)AudioControlRequestType::GET_REQUEST_TO_IF,
-                (uint8_t)AudioSpecRequestCode::GET_CUR, (uint8_t)FeatureUnitControlSelector::VOLUME_CONTROL << 8,
-                ctrlIf_->ifDescr_->bInterfaceNumber, buf, len, 0);
-    if(ret != 0) {
-        LOGE("get volume failed, ret %d(%s)", ret, libusb_error_name(ret));
-        return 0;
-    }
-
-    uint16_t volume = buf[0] << 8 | buf[1];
-
-    return volume;
+    return _getVolumeRequest(AudioSpecRequestCode::GET_CUR);
 }
 
 int UACDevice::getMaxVolume() {
+    return _getVolumeRequest(AudioSpecRequestCode::GET_MAX);
+}
+
+int UACDevice::getMinVolume() {
+    return _getVolumeRequest(AudioSpecRequestCode::GET_MIN);
+}
+
+int UACDevice::_getVolumeRequest(AudioSpecRequestCode requestCode) {
+
+    if(!usbDeviceHandle_) {
+        LOGE("invalid device");
+        return -1;
+    }
+
     int len = 2;
-    uint8_t buf[len];
+    uint8_t buf[len] = {};
 
     int ret = libusb_control_transfer(usbDeviceHandle_, (uint8_t)AudioControlRequestType::GET_REQUEST_TO_IF,
-                (uint8_t)AudioSpecRequestCode::GET_MAX, (uint8_t)FeatureUnitControlSelector::VOLUME_CONTROL << 8,
-                ctrlIf_->ifDescr_->bInterfaceNumber, buf, len, 0);
-    if(ret != 0) {
-        LOGE("get volume failed, ret %d(%s)", ret, libusb_error_name(ret));
+                (uint8_t)requestCode, (uint8_t)FeatureUnitControlSelector::VOLUME_CONTROL << 8,
+                ctrlIf_->ifDescr_->bInterfaceNumber|(ctrlIf_->audioSpec_.acSpecific_.featureUnitDescr_.bUnitID << 8), buf, len, 500);
+    if(ret < 0) {
+        LOGE("_getVolumeRequest failed, ret %d(%s)", ret, libusb_error_name(ret));
         return 0;
     }
 
-    uint16_t volume = buf[0] << 8 | buf[1];
+    uint16_t volume = buf[1] << 8 | buf[0];
 
     return volume;
 }
 
 int UACDevice::setVolume(int volume) {
+    if(!usbDeviceHandle_) {
+        LOGE("invalid device");
+        return -1;
+    }
 
     int len = 2;
-    uint8_t buf[len];
+    uint8_t buf[len] = {};
+    memset(buf, 0, len);
 
+/*
     if(volume < 0x8001 || volume > 0x7fff) {
         LOGE("invalid param");
         return -1;
     }
+    */
 
     buf[0] = volume;
     buf[1] = volume >> 8;
 
-    int ret = libusb_control_transfer(usbDeviceHandle_, (uint8_t)AudioControlRequestType::GET_REQUEST_TO_IF,
+    int ret = libusb_control_transfer(usbDeviceHandle_, (uint8_t)AudioControlRequestType::SET_REQUEST_TO_IF,
                 (uint8_t)AudioSpecRequestCode::SET_CUR, (uint8_t)FeatureUnitControlSelector::VOLUME_CONTROL << 8,
-                ctrlIf_->ifDescr_->bInterfaceNumber, buf, len, 0);
-    if(ret != 0) {
-        LOGE("set mute failed, ret %d(%s)", ret, libusb_error_name(ret));
+                ctrlIf_->ifDescr_->bInterfaceNumber|(ctrlIf_->audioSpec_.acSpecific_.featureUnitDescr_.bUnitID << 8), buf, len, 500);
+    if(ret < 0) {
+        LOGE("setVolume failed, ret %d(%s)", ret, libusb_error_name(ret));
         return ret;
     }
 
@@ -813,16 +828,20 @@ bool UACDevice::isMuteAvailable() {
 }
 
 int UACDevice::setMute(bool isMute) {
+    if(!usbDeviceHandle_) {
+        LOGE("invalid device");
+        return -1;
+    }
 
     int len = 1;
-    uint8_t buf[len];
+    uint8_t buf[len] = {};
 
     buf[0] = isMute ? 1 : 0;
 
-    int ret = libusb_control_transfer(usbDeviceHandle_, (uint8_t)AudioControlRequestType::GET_REQUEST_TO_IF,
+    int ret = libusb_control_transfer(usbDeviceHandle_, (uint8_t)AudioControlRequestType::SET_REQUEST_TO_IF,
                 (uint8_t)AudioSpecRequestCode::SET_CUR, (uint8_t)FeatureUnitControlSelector::MUTE_CONTROL << 8,
-                ctrlIf_->ifDescr_->bInterfaceNumber, buf, len, 0);
-    if(ret != 0) {
+                ctrlIf_->ifDescr_->bInterfaceNumber|(ctrlIf_->audioSpec_.acSpecific_.featureUnitDescr_.bUnitID << 8), buf, len, 500);
+    if(ret < 0) {
         LOGE("set mute failed, ret %d(%s)", ret, libusb_error_name(ret));
         return ret;
     }
@@ -831,19 +850,27 @@ int UACDevice::setMute(bool isMute) {
 }
 
 bool UACDevice::isMute() {
+    if(!usbDeviceHandle_) {
+        LOGE("invalid device");
+        return -1;
+    }
 
     int len = 1;
-    uint8_t buf[len];
+    uint8_t buf[len] = {};
 
     int ret = libusb_control_transfer(usbDeviceHandle_, (uint8_t)AudioControlRequestType::GET_REQUEST_TO_IF,
                 (uint8_t)AudioSpecRequestCode::GET_CUR, (uint8_t)FeatureUnitControlSelector::MUTE_CONTROL << 8,
-                ctrlIf_->ifDescr_->bInterfaceNumber, buf, len, 0);
-    if(ret != 0) {
+                ctrlIf_->ifDescr_->bInterfaceNumber|(ctrlIf_->audioSpec_.acSpecific_.featureUnitDescr_.bUnitID << 8), buf, len, 500);
+    if(ret < 0) {
         LOGE("get mute failed, ret %d(%s)", ret, libusb_error_name(ret));
         return false;
     }
 
-    return buf[0];
+    LOGE("we're here, isMute: %s", bin2str(buf, len).c_str());
+
+    bool isMute = buf[0] ? true : false;
+
+    return isMute;
 }
 
 
