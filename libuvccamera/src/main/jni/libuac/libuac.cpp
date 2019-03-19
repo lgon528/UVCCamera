@@ -746,19 +746,60 @@ bool UACDevice::isVolumeAvailable() {
 }
 
 int UACDevice::getVolume() {
-    // todo get volume
+    int len = 2;
+    uint8_t buf[len];
 
-    return 0;
+    int ret = libusb_control_transfer(usbDeviceHandle_, (uint8_t)AudioControlRequestType::GET_REQUEST_TO_IF,
+                (uint8_t)AudioSpecRequestCode::GET_CUR, (uint8_t)FeatureUnitControlSelector::VOLUME_CONTROL << 8,
+                ctrlIf_->ifDescr_->bInterfaceNumber, buf, len, 0);
+    if(ret != 0) {
+        LOGE("get volume failed, ret %d(%s)", ret, libusb_error_name(ret));
+        return 0;
+    }
+
+    uint16_t volume = buf[0] << 8 | buf[1];
+
+    return volume;
 }
 
 int UACDevice::getMaxVolume() {
-    // todo get max volume
+    int len = 2;
+    uint8_t buf[len];
 
-    return 100;
+    int ret = libusb_control_transfer(usbDeviceHandle_, (uint8_t)AudioControlRequestType::GET_REQUEST_TO_IF,
+                (uint8_t)AudioSpecRequestCode::GET_MAX, (uint8_t)FeatureUnitControlSelector::VOLUME_CONTROL << 8,
+                ctrlIf_->ifDescr_->bInterfaceNumber, buf, len, 0);
+    if(ret != 0) {
+        LOGE("get volume failed, ret %d(%s)", ret, libusb_error_name(ret));
+        return 0;
+    }
+
+    uint16_t volume = buf[0] << 8 | buf[1];
+
+    return volume;
 }
 
 int UACDevice::setVolume(int volume) {
-    // todo set volume
+
+    int len = 2;
+    uint8_t buf[len];
+
+    if(volume < 0x8001 || volume > 0x7fff) {
+        LOGE("invalid param");
+        return -1;
+    }
+
+    buf[0] = volume;
+    buf[1] = volume >> 8;
+
+    int ret = libusb_control_transfer(usbDeviceHandle_, (uint8_t)AudioControlRequestType::GET_REQUEST_TO_IF,
+                (uint8_t)AudioSpecRequestCode::SET_CUR, (uint8_t)FeatureUnitControlSelector::VOLUME_CONTROL << 8,
+                ctrlIf_->ifDescr_->bInterfaceNumber, buf, len, 0);
+    if(ret != 0) {
+        LOGE("set mute failed, ret %d(%s)", ret, libusb_error_name(ret));
+        return ret;
+    }
+
 
     return 0;
 }
@@ -772,7 +813,19 @@ bool UACDevice::isMuteAvailable() {
 }
 
 int UACDevice::setMute(bool isMute) {
-    // todo set mute
+
+    int len = 1;
+    uint8_t buf[len];
+
+    buf[0] = isMute ? 1 : 0;
+
+    int ret = libusb_control_transfer(usbDeviceHandle_, (uint8_t)AudioControlRequestType::GET_REQUEST_TO_IF,
+                (uint8_t)AudioSpecRequestCode::SET_CUR, (uint8_t)FeatureUnitControlSelector::MUTE_CONTROL << 8,
+                ctrlIf_->ifDescr_->bInterfaceNumber, buf, len, 0);
+    if(ret != 0) {
+        LOGE("set mute failed, ret %d(%s)", ret, libusb_error_name(ret));
+        return ret;
+    }
 
     return 0;
 }
