@@ -243,34 +243,37 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 							mUACAudio = audio;
 						}
 
-						final UVCCamera camera = new UVCCamera();
-						camera.open(ctrlBlock);
-						if (DEBUG) Log.i(TAG, "supportedSize:" + camera.getSupportedSize());
-						mPreviewWidth = camera.getSupportedSizeList().get(0).width;
-						mPreviewHeight = camera.getSupportedSizeList().get(0).height;
-						try {
-							camera.setPreviewSize(mPreviewWidth, mPreviewHeight, UVCCamera.FRAME_FORMAT_MJPEG);
-						} catch (final IllegalArgumentException e) {
-							try {
-								// fallback to YUV mode
-								camera.setPreviewSize(mPreviewWidth, mPreviewHeight, UVCCamera.DEFAULT_PREVIEW_MODE);
-							} catch (final IllegalArgumentException e1) {
-								Log.e(TAG, "setPreviewSize exception");
-								e1.printStackTrace();
-								camera.destroy();
-								return;
-							}
-						}
-						mPreviewSurface = mUVCCameraView.getHolder().getSurface();
-						if (mPreviewSurface != null) {
-							isActive = true;
-							camera.setPreviewDisplay(mPreviewSurface);
-							camera.startPreview();
-							isPreview = true;
-						}
-						synchronized (mSync) {
-							mUVCCamera = camera;
-						}
+//						final UVCCamera camera = new UVCCamera(ctrlBlock);
+//						boolean isCamera = camera.isUVCDevice();
+//						if(!isCamera) return;
+//
+//						camera.open();
+//						if (DEBUG) Log.i(TAG, "supportedSize:" + camera.getSupportedSize());
+//						mPreviewWidth = camera.getSupportedSizeList().get(0).width;
+//						mPreviewHeight = camera.getSupportedSizeList().get(0).height;
+//						try {
+//							camera.setPreviewSize(mPreviewWidth, mPreviewHeight, UVCCamera.FRAME_FORMAT_MJPEG);
+//						} catch (final IllegalArgumentException e) {
+//							try {
+//								// fallback to YUV mode
+//								camera.setPreviewSize(mPreviewWidth, mPreviewHeight, UVCCamera.DEFAULT_PREVIEW_MODE);
+//							} catch (final IllegalArgumentException e1) {
+//								Log.e(TAG, "setPreviewSize exception");
+//								e1.printStackTrace();
+//								camera.destroy();
+//								return;
+//							}
+//						}
+//						mPreviewSurface = mUVCCameraView.getHolder().getSurface();
+//						if (mPreviewSurface != null) {
+//							isActive = true;
+//							camera.setPreviewDisplay(mPreviewSurface);
+//							camera.startPreview();
+//							isPreview = true;
+//						}
+//						synchronized (mSync) {
+//							mUVCCamera = camera;
+//						}
 
 
 						filePath = Environment.getExternalStorageDirectory().getPath() + "/justfortest/" + System.currentTimeMillis();

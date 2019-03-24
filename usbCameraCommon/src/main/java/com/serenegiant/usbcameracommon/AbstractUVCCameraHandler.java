@@ -60,7 +60,6 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
@@ -440,8 +439,8 @@ abstract class AbstractUVCCameraHandler extends Handler {
 			if (DEBUG) Log.v(TAG_THREAD, "handleOpen:");
 			handleClose();
 			try {
-				final UVCCamera camera = new UVCCamera();
-				camera.open(ctrlBlock);
+				final UVCCamera camera = new UVCCamera(ctrlBlock);
+				camera.open();
 				synchronized (mSync) {
 					mUVCCamera = camera;
 				}

@@ -23,10 +23,6 @@
 
 package com.serenegiant.service;
 
-import java.io.IOException;
-import java.lang.ref.WeakReference;
-import java.lang.reflect.Field;
-
 import android.content.Context;
 import android.media.AudioManager;
 import android.media.MediaScannerConnection;
@@ -47,10 +43,14 @@ import com.serenegiant.encoder.MediaMuxerWrapper;
 import com.serenegiant.encoder.MediaSurfaceEncoder;
 import com.serenegiant.glutils.RenderHolderCallback;
 import com.serenegiant.glutils.RendererHolder;
-import com.serenegiant.usb.USBMonitor.UsbControlBlock;
 import com.serenegiant.usb.Size;
+import com.serenegiant.usb.USBMonitor.UsbControlBlock;
 import com.serenegiant.usb.UVCCamera;
 import com.serenegiant.usbcameratest4.R;
+
+import java.io.IOException;
+import java.lang.ref.WeakReference;
+import java.lang.reflect.Field;
 
 public final class CameraServer extends Handler {
 	private static final boolean DEBUG = true;
@@ -375,8 +375,8 @@ public final class CameraServer extends Handler {
 			if (DEBUG) Log.d(TAG_THREAD, "handleOpen:");
 			handleClose();
 			synchronized (mSync) {
-				mUVCCamera = new UVCCamera();
-				mUVCCamera.open(mCtrlBlock);
+				mUVCCamera = new UVCCamera(mCtrlBlock);
+				mUVCCamera.open();
 				if (DEBUG) Log.i(TAG, "supportedSize:" + mUVCCamera.getSupportedSize());
 			}
 			mHandler.processOnCameraStart();

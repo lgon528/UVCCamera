@@ -176,20 +176,35 @@ public class UVCCamera {
      * the sonctructor of this class should be call within the thread that has a looper
      * (UI thread or a thread that called Looper.prepare)
      */
-    public UVCCamera() {
+    public UVCCamera(final UsbControlBlock ctrlBlock) {
     	mNativePtr = nativeCreate();
     	mSupportedSize = null;
+
+		try {
+			mCtrlBlock = ctrlBlock.clone();
+		} catch (CloneNotSupportedException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public synchronized boolean isUVCDevice() {
+    	return nativeIsUVCDevice(mNativePtr,
+				mCtrlBlock.getVenderId(),
+				mCtrlBlock.getProductId(),
+				mCtrlBlock.getFileDescriptor(),
+				mCtrlBlock.getBusNum(),
+				mCtrlBlock.getDevNum(),
+				mCtrlBlock.getSerial(),
+				getUSBFSName(mCtrlBlock));
 	}
 
     /**
      * connect to a UVC camera
      * USB permission is necessary before this method is called
-     * @param ctrlBlock
      */
-    public synchronized void open(final UsbControlBlock ctrlBlock) {
+    public synchronized void open() {
     	int result;
     	try {
-			mCtrlBlock = ctrlBlock.clone();
 			result = nativeConnect(mNativePtr,
 				mCtrlBlock.getVenderId(), mCtrlBlock.getProductId(),
 				mCtrlBlock.getFileDescriptor(),
@@ -1224,4 +1239,6 @@ public class UVCCamera {
 	private final native int nativeUpdatePrivacyLimit(final long id_camera);
     private static final native int nativeSetPrivacy(final long id_camera, final boolean privacy);
     private static final native int nativeGetPrivacy(final long id_camera);
+
+    private static final native boolean nativeIsUVCDevice(long id_camera, int vid, int pid, int fd, int busnum, int devaddr, String sn, String usbfs);
 }

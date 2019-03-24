@@ -71,6 +71,18 @@ public class UACAudio {
         return nativePtr != 0 && controlBlock != null;
     }
 
+    public int getDeviceID() {
+        if(controlBlock != null) return controlBlock.getDeviceId();
+
+        return -1;
+    }
+
+    public String getDeviceName() {
+        if(controlBlock != null) return controlBlock.getDeviceName();
+
+        return "UAC AUDIO MIC";
+    }
+
     public synchronized int open() {
         Log.i(TAG, "open device");
         if(nativePtr == 0) {
@@ -208,6 +220,10 @@ public class UACAudio {
         this.volume = volume;
 
         return 0;
+    }
+
+    public synchronized boolean isOpened() {
+        return isOpened;
     }
 //
 //    public synchronized int startRecord(String path) {

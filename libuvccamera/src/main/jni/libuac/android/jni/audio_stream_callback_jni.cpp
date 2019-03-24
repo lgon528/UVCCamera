@@ -54,7 +54,6 @@ namespace libuac {
     void IAudioStreamCallbackJni::onStreaming(Bytes data) {
 
         std::lock_guard<std::mutex> localLock(mutex_);
-        LOGD("begin to callback onStreaming, size: %d", data.size());
         if(cbObj_ != nullptr) {
             ScopedJEnv scopedJEnv;
             auto env = scopedJEnv.GetEnv();

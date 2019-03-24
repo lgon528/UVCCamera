@@ -181,6 +181,7 @@ public:
 	UVCCamera();
 	~UVCCamera();
 
+    bool isUVCDevice(int vid, int pid, int fd, int busnum, int devaddr, const char *sn, const char *usbfs);
 	int connect(int vid, int pid, int fd, int busnum, int devaddr, const char *usbfs);
 	int release();
 

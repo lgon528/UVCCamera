@@ -138,8 +138,8 @@ public final class MainActivity extends BaseActivity implements CameraDialog.Cam
 			queueEvent(new Runnable() {
 				@Override
 				public void run() {
-					final UVCCamera camera = new UVCCamera();
-					camera.open(ctrlBlock);
+					final UVCCamera camera = new UVCCamera(ctrlBlock);
+					camera.open();
 					camera.setStatusCallback(new IStatusCallback() {
 						@Override
 						public void onStatus(final int statusClass, final int event, final int selector,

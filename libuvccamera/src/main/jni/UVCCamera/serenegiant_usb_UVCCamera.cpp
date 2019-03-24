@@ -1994,6 +1994,25 @@ static jint nativeGetPrivacy(JNIEnv *env, jobject thiz,
 	RETURN(result, jint);
 }
 
+static jboolean nativeIsUVCDevice(JNIEnv *env, jobject thiz,
+	ID_TYPE id_camera,
+	jint vid, jint pid, jint fd,
+	jint busNum, jint devAddr, jstring sn_str, jstring usbfs_str) {
+
+	ENTER();
+	jboolean result = (jboolean)false;
+	UVCCamera *camera = reinterpret_cast<UVCCamera *>(id_camera);
+	const char *c_usbfs = env->GetStringUTFChars(usbfs_str, JNI_FALSE);
+	const char *c_sn = env->GetStringUTFChars(sn_str, JNI_FALSE);
+	if (LIKELY(camera && (fd > 0))) {
+//		libusb_set_debug(NULL, LIBUSB_LOG_LEVEL_DEBUG);
+		result =  camera->isUVCDevice(vid, pid, fd, busNum, devAddr, c_sn, c_usbfs);
+	}
+	env->ReleaseStringUTFChars(usbfs_str, c_usbfs);
+	env->ReleaseStringUTFChars(sn_str, c_sn);
+	RETURN(result, jboolean);
+}
+
 //**********************************************************************
 //
 //**********************************************************************
@@ -2011,6 +2030,7 @@ jint registerNativeMethods(JNIEnv* env, const char *class_name, JNINativeMethod 
 	}
 	return result;
 }
+
 
 static JNINativeMethod methods[] = {
 	{ "nativeCreate",					"()J", (void *) nativeCreate },
@@ -2189,6 +2209,8 @@ static JNINativeMethod methods[] = {
 	{ "nativeUpdatePrivacyLimit",		"(J)I", (void *) nativeUpdatePrivacyLimit },
 	{ "nativeSetPrivacy",				"(JZ)I", (void *) nativeSetPrivacy },
 	{ "nativeGetPrivacy",				"(J)I", (void *) nativeGetPrivacy },
+
+	{ "nativeIsUVCDevice",              "(JIIIIILjava/lang/String;Ljava/lang/String;)Z", (void*) nativeIsUVCDevice },
 };
 
 int register_uvccamera(JNIEnv *env) {

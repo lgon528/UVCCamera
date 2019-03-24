@@ -130,6 +130,66 @@ void UVCCamera::clearCameraParams() {
 	mAnalogVideoLockState.min = mAnalogVideoLockState.max = mAnalogVideoLockState.def = 0;
 }
 
+
+bool UVCCamera::isUVCDevice(int vid, int pid, int fd, int busnum, int devaddr, const char *sn, const char *usbfs) {
+    ENTER();
+    int ret = 0;
+
+    if (!mDeviceHandle && fd) {
+        if (mUsbFs)
+            free(mUsbFs);
+        mUsbFs = strdup(usbfs);
+        if (UNLIKELY(!mContext)) {
+            int ret = uvc_init2(&mContext, NULL, mUsbFs);
+//			libusb_set_debug(mContext->usb_ctx, LIBUSB_LOG_LEVEL_DEBUG);
+            if (UNLIKELY(ret < 0)) {
+                LOGD("failed to init libuvc, code %d(%s)", ret, libusb_error_name(ret));
+                RETURN(false, bool);
+            }
+        }
+	}
+
+    libusb_device *usbDevice = libusb_get_device_with_fd(mContext->usb_ctx, vid, pid, sn, fd, busnum, devaddr);
+    if(usbDevice){
+        //libusb_set_device_fd(usbDevice, fd);  // assign fd to libusb_device for non-rooted Android devices
+
+        libusb_config_descriptor *config;
+        ret = libusb_get_config_descriptor(usbDevice, 0, &config);
+        if(ret != 0) {
+            LOGE("libusb_get_config_descriptor failed, %d(%s)", ret, libusb_error_name(ret));
+	        libusb_unref_device(usbDevice);
+            RETURN(false, bool);
+        }
+
+        // find control interface
+        int cnt = config->bNumInterfaces;
+        if(cnt > 0) {
+            for(int interfaceIdx = 0; interfaceIdx < cnt; interfaceIdx++) {
+                int num_altsetting = config->interface[interfaceIdx].num_altsetting;
+
+                LOGE("we're here, num_altsetting: %d", num_altsetting);
+                for(int settingIdx = 0; settingIdx < num_altsetting; settingIdx++) {
+                    const libusb_interface_descriptor *ifDescr = &config->interface[interfaceIdx].altsetting[settingIdx];
+
+                    LOGE("we're here, setting: len %d, type %d, ifNum %d, settingN %d, epNum %d,class %d, subclass %d, proto %d, strIf %d, extLen %d",
+                            ifDescr->bLength, ifDescr->bDescriptorType, ifDescr->bInterfaceNumber, ifDescr->bAlternateSetting,
+                            ifDescr->bNumEndpoints, ifDescr->bInterfaceClass, ifDescr->bInterfaceSubClass,
+                            ifDescr->bInterfaceProtocol, ifDescr->iInterface, ifDescr->extra_length);
+
+                    if(ifDescr->bInterfaceClass == LIBUSB_CLASS_VIDEO && ifDescr->bInterfaceSubClass == 0x1) { // video, control
+	                    libusb_unref_device(usbDevice);
+                        RETURN(true, bool);
+                    }
+                }
+            }
+        }
+
+        libusb_unref_device(usbDevice);
+    }
+
+    RETURN(false, bool);
+}
+
 //======================================================================
 /**
  * カメラへ接続する

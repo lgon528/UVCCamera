@@ -25,7 +25,7 @@ int UACContext::init(std::string usbfs) {
         }
     }
 
-    libusb_set_debug(usbContext_, LIBUSB_LOG_LEVEL_DEBUG);
+    //libusb_set_debug(usbContext_, LIBUSB_LOG_LEVEL_DEBUG);
 
     return 0;
 }
@@ -118,7 +118,7 @@ std::shared_ptr<UACDevice> UACContext::findDevice(const int vid, const int pid, 
     std::shared_ptr<UACDevice> device;
 
     if(init(usbfs)) {
-        LOGE("uac context not init yet");
+        LOGE("uac init failed");
         return device;
     }
 
@@ -529,7 +529,7 @@ static void _process_payload_iso(libusb_transfer *transfer) {
     struct libusb_iso_packet_descriptor *pkt;
     std::string recv;
 
-    LOGE("we're here, _process_payload_iso, num_iso_packets: %d", transfer->num_iso_packets);
+    //LOGE("we're here, _process_payload_iso, num_iso_packets: %d", transfer->num_iso_packets);
     for (int packet_id = 0; packet_id < transfer->num_iso_packets; ++packet_id) {
 
         pkt = transfer->iso_packet_desc + packet_id;
@@ -549,7 +549,7 @@ static void _process_payload_iso(libusb_transfer *transfer) {
             continue;
         }
 
-        LOGE("we're here, per packet, len %d|%d", pkt->length, pkt->actual_length);
+        //LOGE("we're here, per packet, len %d|%d", pkt->length, pkt->actual_length);
         //LOGE("we're here, per packet, len %d|%d, buf: %s", pkt->length, pkt->actual_length, bin2str(pktbuf, pkt->actual_length).c_str());
 
         recv.append((char*)pktbuf, pkt->actual_length);
@@ -804,7 +804,7 @@ int UACDevice::setVolume(int volume) {
     }
     */
 
-    buf[0] = volume;
+    buf[0] = volume & 0x0f;
     buf[1] = volume >> 8;
 
     int ret = libusb_control_transfer(usbDeviceHandle_, (uint8_t)AudioControlRequestType::SET_REQUEST_TO_IF,

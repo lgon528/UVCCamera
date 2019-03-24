@@ -23,12 +23,6 @@
 
 package com.serenegiant.usbcameratest2;
 
-import java.io.File;
-import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.GregorianCalendar;
-import java.util.Locale;
-
 import android.graphics.SurfaceTexture;
 import android.hardware.usb.UsbDevice;
 import android.os.Bundle;
@@ -56,6 +50,12 @@ import com.serenegiant.video.Encoder;
 import com.serenegiant.video.Encoder.EncodeListener;
 import com.serenegiant.video.SurfaceEncoder;
 import com.serenegiant.widget.SimpleUVCCameraTextureView;
+
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.GregorianCalendar;
+import java.util.Locale;
 
 public final class MainActivity extends BaseActivity implements CameraDialog.CameraDialogParent {
 	private static final boolean DEBUG = true;	// set false when releasing
@@ -187,8 +187,8 @@ public final class MainActivity extends BaseActivity implements CameraDialog.Cam
 			queueEvent(new Runnable() {
 				@Override
 				public void run() {
-					final UVCCamera camera = new UVCCamera();
-					camera.open(ctrlBlock);
+					final UVCCamera camera = new UVCCamera(ctrlBlock);
+					camera.open();
 					if (DEBUG) Log.i(TAG, "supportedSize:" + camera.getSupportedSize());
 					if (mPreviewSurface != null) {
 						mPreviewSurface.release();
