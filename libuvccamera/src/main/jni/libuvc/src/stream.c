@@ -45,7 +45,7 @@
 #define LOCAL_DEBUG 0
 
 #define LOG_TAG "libuvc/stream"
-#if 0	// デバッグ情報を出さない時1
+#if 1	// デバッグ情報を出さない時1
 	#ifndef LOG_NDEBUG
 		#define	LOG_NDEBUG		// LOGV/LOGD/MARKを出力しない時
 		#endif
@@ -801,7 +801,6 @@ static inline void _uvc_process_payload_iso(uvc_stream_handle_t *strmh, struct l
 			MARK("zero packet (transfer):");
 			continue;
 		}
-		LOGE("we're here, uvc onframe, pkg len: %d|%d", pkg->length, pkg->actual_length);
 		// libusb_get_iso_packet_buffer_simple will return NULL
 		uint8_t *pktbuf = libusb_get_iso_packet_buffer_simple(transfer, packet_id);
 		_uvc_process_payload(strmh, pktbuf, pkt->actual_length);
@@ -1308,7 +1307,6 @@ uvc_error_t uvc_stream_open_ctrl(uvc_device_handle_t *devh,
 	uvc_error_t ret;
 
 	UVC_ENTER();
-	LOGE("we're here, interface %d", ctrl->bInterfaceNumber);
 
 	if (UNLIKELY(_uvc_get_stream_by_interface(devh, ctrl->bInterfaceNumber) != NULL)) {
 		ret = UVC_ERROR_BUSY; /* Stream is already opened */
@@ -1330,7 +1328,6 @@ uvc_error_t uvc_stream_open_ctrl(uvc_device_handle_t *devh,
 	strmh->stream_if = stream_if;
 	strmh->frame.library_owns_data = 1;
 
-	LOGE("we're here, strmh interface %d", strmh->stream_if->bInterfaceNumber);
 	ret = uvc_claim_if(strmh->devh, strmh->stream_if->bInterfaceNumber);
 	if (UNLIKELY(ret != UVC_SUCCESS))
 		goto fail;

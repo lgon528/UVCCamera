@@ -23,7 +23,7 @@
 */
 
 #define LOG_TAG "UVCCamera"
-#if 0	// デバッグ情報を出さない時1
+#if 1	// デバッグ情報を出さない時1
 	#ifndef LOG_NDEBUG
 		#define	LOG_NDEBUG		// LOGV/LOGD/MARKを出力しない時
 		#endif
@@ -167,11 +167,11 @@ bool UVCCamera::isUVCDevice(int vid, int pid, int fd, int busnum, int devaddr, c
             for(int interfaceIdx = 0; interfaceIdx < cnt; interfaceIdx++) {
                 int num_altsetting = config->interface[interfaceIdx].num_altsetting;
 
-                LOGE("we're here, num_altsetting: %d", num_altsetting);
+                LOGI("num_altsetting: %d", num_altsetting);
                 for(int settingIdx = 0; settingIdx < num_altsetting; settingIdx++) {
                     const libusb_interface_descriptor *ifDescr = &config->interface[interfaceIdx].altsetting[settingIdx];
 
-                    LOGE("we're here, setting: len %d, type %d, ifNum %d, settingN %d, epNum %d,class %d, subclass %d, proto %d, strIf %d, extLen %d",
+                    LOGI("setting: len %d, type %d, ifNum %d, settingN %d, epNum %d,class %d, subclass %d, proto %d, strIf %d, extLen %d",
                             ifDescr->bLength, ifDescr->bDescriptorType, ifDescr->bInterfaceNumber, ifDescr->bAlternateSetting,
                             ifDescr->bNumEndpoints, ifDescr->bInterfaceClass, ifDescr->bInterfaceSubClass,
                             ifDescr->bInterfaceProtocol, ifDescr->iInterface, ifDescr->extra_length);
@@ -211,7 +211,6 @@ int UVCCamera::connect(int vid, int pid, int fd, int busnum, int devaddr, const 
 		}
 		// カメラ機能フラグをクリア
 		clearCameraParams();
-        LOGE("we're here, uvc vid %d, pid %d, usbfs %s, fd %d, bnum %d, daddr %d", vid, pid, usbfs, fd, busnum, devaddr);
 		fd = dup(fd);
 		// 指定したvid,idを持つデバイスを検索, 見つかれば0を返してmDeviceに見つかったデバイスをセットする(既に1回uvc_ref_deviceを呼んである)
 //		result = uvc_find_device2(mContext, &mDevice, vid, pid, NULL, fd);

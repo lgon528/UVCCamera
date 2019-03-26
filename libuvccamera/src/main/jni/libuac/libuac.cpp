@@ -126,10 +126,9 @@ std::shared_ptr<UACDevice> UACContext::findDevice(const int vid, const int pid, 
     oss << vid << "_" << pid << "_" << sn;
     std::string key = oss.str();
 
-    LOGE("we're here, key %s, vid %d, pid %d, sn %s, fd %d, bnum %d, daddr %d", key.c_str(), vid, pid, sn.c_str(), fd, busnum, devaddr);
+    LOGD(" key %s, vid %d, pid %d, sn %s, fd %d, bnum %d, daddr %d", key.c_str(), vid, pid, sn.c_str(), fd, busnum, devaddr);
 
     libusb_device *usbDevice = libusb_get_device_with_fd(usbContext_, vid, pid, sn.c_str(), fd, busnum, devaddr);
-    LOGE("we're here, usbDevice %p", usbDevice);
     if(usbDevice){
         libusb_set_device_fd(usbDevice, fd);  // assign fd to libusb_device for non-rooted Android devices
         //libusb_ref_device(usbDevice);
@@ -180,7 +179,6 @@ std::map<std::string, std::shared_ptr<UACDevice>> UACContext::getDevices() {
 
 int UACInterface::claim(libusb_device_handle *devHandle) {
 
-                    LOGE("we're here, devhandle %p, ifDescr %p", devHandle, ifDescr_);
 
     LOGD("before kernel active errno:%d, %s", errno, strerror(errno));
     int r = libusb_kernel_driver_active(devHandle, ifDescr_->bInterfaceNumber);
@@ -252,7 +250,7 @@ int UACDevice::open() {
     // claim interface
     ctrlIf_->claim(usbDeviceHandle_);
     ret = libusb_set_interface_alt_setting(usbDeviceHandle_, ctrlIf_->ifDescr_->bInterfaceNumber, ctrlIf_->ifDescr_->bAlternateSetting);
-    LOGE("we're here, interface %d, altsetting %d", ctrlIf_->ifDescr_->bInterfaceNumber, ctrlIf_->ifDescr_->bAlternateSetting);
+    LOGI("interface %d, altsetting %d", ctrlIf_->ifDescr_->bInterfaceNumber, ctrlIf_->ifDescr_->bAlternateSetting);
     if(ret < 0) {
         LOGE("libusb_set_interface_alt_setting failed, interface %d, altsetting %d, ret %d(%s)",
                         ctrlIf_->ifDescr_->bInterfaceNumber, ctrlIf_->ifDescr_->bAlternateSetting,
@@ -262,7 +260,7 @@ int UACDevice::open() {
 
     selectedIf_->claim(usbDeviceHandle_);
     ret = libusb_set_interface_alt_setting(usbDeviceHandle_, selectedIf_->ifDescr_->bInterfaceNumber, selectedIf_->ifDescr_->bAlternateSetting);
-    LOGE("we're here, interface %d, altsetting %d", selectedIf_->ifDescr_->bInterfaceNumber, selectedIf_->ifDescr_->bAlternateSetting);
+    LOGI("interface %d, altsetting %d", selectedIf_->ifDescr_->bInterfaceNumber, selectedIf_->ifDescr_->bAlternateSetting);
     if(ret < 0) {
         LOGE("libusb_set_interface_alt_setting failed, interface %d, altsetting %d, ret %d(%s)",
                         selectedIf_->ifDescr_->bInterfaceNumber, selectedIf_->ifDescr_->bAlternateSetting,
@@ -360,18 +358,17 @@ void UACDevice::scanControlInterface() {
         for(int interfaceIdx = 0; interfaceIdx < cnt; interfaceIdx++) {
             auto num_altsetting = config_->interface[interfaceIdx].num_altsetting;
 
-            LOGE("we're here, num_altsetting: %d", num_altsetting);
+            LOGI("num_altsetting: %d", num_altsetting);
             for(int settingIdx = 0; settingIdx < num_altsetting; settingIdx++) {
 
                 const libusb_interface_descriptor *ifDescr = &config_->interface[interfaceIdx].altsetting[settingIdx];
 
-                LOGE("we're here, setting: len %d, type %d, ifNum %d, settingN %d, epNum %d,class %d, subclass %d, proto %d, strIf %d, extLen %d",
+                LOGI("setting: len %d, type %d, ifNum %d, settingN %d, epNum %d,class %d, subclass %d, proto %d, strIf %d, extLen %d",
                         ifDescr->bLength, ifDescr->bDescriptorType, ifDescr->bInterfaceNumber, ifDescr->bAlternateSetting,
                         ifDescr->bNumEndpoints, ifDescr->bInterfaceClass, ifDescr->bInterfaceSubClass,
                         ifDescr->bInterfaceProtocol, ifDescr->iInterface, ifDescr->extra_length);
 
                 if(ifDescr->bInterfaceClass == LIBUSB_CLASS_AUDIO && ifDescr->bInterfaceSubClass == 0x1) { // audio, control
-                    LOGE("we're here, devhandle %p", usbDeviceHandle_);
                     ctrlIf_.reset(new UACInterface);
                     ctrlIf_->ifDescr_ = ifDescr;
                     ctrlIf_->epDescr_ = ifDescr->endpoint;
@@ -451,25 +448,25 @@ void UACDevice::scanStreamInterface() {
 
     // find audio interface
     auto cnt = config_->bNumInterfaces;
-    LOGE("we're here, cnt: %d", cnt);
+    LOGI("cnt: %d", cnt);
     if(cnt > 0) {
         for(int interfaceIdx = 0; interfaceIdx < cnt; interfaceIdx++) {
             auto num_altsetting = config_->interface[interfaceIdx].num_altsetting;
 
-            LOGE("we're here, num_altsetting: %d", num_altsetting);
+            LOGI("num_altsetting: %d", num_altsetting);
             for(int settingIdx = 0; settingIdx < num_altsetting; settingIdx++) {
 
                 const libusb_interface_descriptor *ifDescr = &config_->interface[interfaceIdx].altsetting[settingIdx];
 
-                LOGE("we're here, setting: len %d, type %d, ifNum %d, settingN %d, epNum %d, mclass %d, subclass %d, proto %d, strIf %d, extLen %d, ep %p",
+                LOGI("setting: len %d, type %d, ifNum %d, settingN %d, epNum %d, mclass %d, subclass %d, proto %d, strIf %d, extLen %d, ep %p",
                         ifDescr->bLength, ifDescr->bDescriptorType, ifDescr->bInterfaceNumber, ifDescr->bAlternateSetting,
                         ifDescr->bNumEndpoints, ifDescr->bInterfaceClass, ifDescr->bInterfaceSubClass,
                         ifDescr->bInterfaceProtocol, ifDescr->iInterface, ifDescr->extra_length, ifDescr->endpoint);
                 if(ifDescr->extra) {
-                    LOGE("we're here, inteface extra: %s", bin2str(ifDescr->extra, ifDescr->extra_length).c_str());
+                    LOGE("inteface extra: %s", bin2str(ifDescr->extra, ifDescr->extra_length).c_str());
                 }
                 if(ifDescr->endpoint && ifDescr->endpoint->extra) {
-                    LOGE("we're here, ep extra: %s, maxLen %d", bin2str(ifDescr->endpoint->extra, ifDescr->endpoint->extra_length).c_str(), ifDescr->endpoint->wMaxPacketSize);
+                    LOGE("ep extra: %s, maxLen %d", bin2str(ifDescr->endpoint->extra, ifDescr->endpoint->extra_length).c_str(), ifDescr->endpoint->wMaxPacketSize);
                 }
 
                 if(ifDescr->bInterfaceClass == LIBUSB_CLASS_AUDIO && ifDescr->bInterfaceSubClass == 0x2) { // audio, stream
@@ -496,7 +493,7 @@ void UACDevice::scanStreamInterface() {
             }
         }
     } else {
-        LOGE("we're here, no inteface");
+        LOGE("no inteface");
     }
 }
 
@@ -504,7 +501,6 @@ void UACDevice::scanStreamInterface() {
 int UACDevice::_startStreaming() {
     // transfer
     if(isOpened_) {
-        LOGE("we're here");
         _transfer();
     }
 
@@ -606,7 +602,6 @@ static void _stream_callback(libusb_transfer *transfer)
 
 void UACDevice::_transfer() {
 
-    LOGE("we're here, ifs size: %d", streamIfs_.size());
     if(streamIfs_.size() <= 0 || !selectedIf_){
         LOGE("no valid interfaces");
         return;
@@ -866,7 +861,7 @@ bool UACDevice::isMute() {
         return false;
     }
 
-    LOGE("we're here, isMute: %s", bin2str(buf, len).c_str());
+    LOGI("isMute: %s", bin2str(buf, len).c_str());
 
     bool isMute = buf[0] ? true : false;
 
