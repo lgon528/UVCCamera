@@ -92,7 +92,6 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 		bufferSizeInBytes = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
 		byteBuffer = ByteBuffer.allocate(bufferSizeInBytes);
 		byteBuffer.clear();
-		Log.i(TAG, "we're here, bufferSizeInBytes: " + bufferSizeInBytes);
 		//创建AudioTrack对象   依次传入 :流类型、采样率（与采集的要一致）、音频通道（采集是IN 播放时OUT）、量化位数、最小缓冲区、模式
 		audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,sampleRate,AudioFormat.CHANNEL_OUT_MONO,AudioFormat.ENCODING_PCM_16BIT, bufferSizeInBytes, AudioTrack.MODE_STREAM);
 	}
@@ -132,12 +131,24 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 				mUSBMonitor.destroy();
 				mUSBMonitor = null;
 			}
+
+			if(mPreviewSurface != null) {
+				mPreviewSurface.release();
+				mPreviewSurface = null;
+			}
+
+			if(mUACAudio != null) {
+				mUACAudio.close();
+				mUACAudio = null;
+			}
 		}
+
 		mUVCCameraView = null;
 		mCameraButton = null;
 		super.onDestroy();
 	}
 
+	private int count = 0;
 	private final OnClickListener mOnClickListener = new OnClickListener() {
 		@Override
 		public void onClick(final View view) {
@@ -157,6 +168,7 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 
 					if(mUACAudio != null) {
 						mUACAudio.close();
+						mUACAudio = null;
 					}
 
 //					playAudio();
@@ -230,7 +242,7 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 							audio.setAudioStreamCallback(new IAudioStreamCallback() {
 								@Override
 								public void onStreaming(byte[] data) {
-									Log.i(TAG, "onStreaming, size: " + data.length);
+//									Log.i(TAG, "onStreaming, size: " + data.length);
 //									Log.i(TAG, "onStreaming, content: " + byte2hex(data));
 //									byte[] frame = data;
 									byte[] frame = stereo2mono(data);
@@ -243,37 +255,37 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 							mUACAudio = audio;
 						}
 
-//						final UVCCamera camera = new UVCCamera(ctrlBlock);
-//						boolean isCamera = camera.isUVCDevice();
-//						if(!isCamera) return;
-//
-//						camera.open();
-//						if (DEBUG) Log.i(TAG, "supportedSize:" + camera.getSupportedSize());
-//						mPreviewWidth = camera.getSupportedSizeList().get(0).width;
-//						mPreviewHeight = camera.getSupportedSizeList().get(0).height;
-//						try {
-//							camera.setPreviewSize(mPreviewWidth, mPreviewHeight, UVCCamera.FRAME_FORMAT_MJPEG);
-//						} catch (final IllegalArgumentException e) {
-//							try {
-//								// fallback to YUV mode
-//								camera.setPreviewSize(mPreviewWidth, mPreviewHeight, UVCCamera.DEFAULT_PREVIEW_MODE);
-//							} catch (final IllegalArgumentException e1) {
-//								Log.e(TAG, "setPreviewSize exception");
-//								e1.printStackTrace();
-//								camera.destroy();
-//								return;
-//							}
-//						}
-//						mPreviewSurface = mUVCCameraView.getHolder().getSurface();
-//						if (mPreviewSurface != null) {
-//							isActive = true;
-//							camera.setPreviewDisplay(mPreviewSurface);
-//							camera.startPreview();
-//							isPreview = true;
-//						}
-//						synchronized (mSync) {
-//							mUVCCamera = camera;
-//						}
+						final UVCCamera camera = new UVCCamera(ctrlBlock);
+						boolean isCamera = camera.isUVCDevice();
+						if(!isCamera) return;
+
+						camera.open();
+						if (DEBUG) Log.i(TAG, "supportedSize:" + camera.getSupportedSize());
+						mPreviewWidth = camera.getSupportedSizeList().get(0).width;
+						mPreviewHeight = camera.getSupportedSizeList().get(0).height;
+						try {
+							camera.setPreviewSize(mPreviewWidth, mPreviewHeight, UVCCamera.FRAME_FORMAT_MJPEG);
+						} catch (final IllegalArgumentException e) {
+							try {
+								// fallback to YUV mode
+								camera.setPreviewSize(mPreviewWidth, mPreviewHeight, UVCCamera.DEFAULT_PREVIEW_MODE);
+							} catch (final IllegalArgumentException e1) {
+								Log.e(TAG, "setPreviewSize exception");
+								e1.printStackTrace();
+								camera.destroy();
+								return;
+							}
+						}
+						mPreviewSurface = mUVCCameraView.getHolder().getSurface();
+						if (mPreviewSurface != null) {
+							isActive = true;
+							camera.setPreviewDisplay(mPreviewSurface);
+							camera.startPreview();
+							isPreview = true;
+						}
+						synchronized (mSync) {
+							mUVCCamera = camera;
+						}
 
 
 						filePath = Environment.getExternalStorageDirectory().getPath() + "/justfortest/" + System.currentTimeMillis();
@@ -305,10 +317,12 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 						if (mUVCCamera != null) {
 							mUVCCamera.close();
 							if (mPreviewSurface != null) {
-								mPreviewSurface.release();
+//								mPreviewSurface.release();
 								mPreviewSurface = null;
 							}
 							isActive = isPreview = false;
+
+							mUVCCamera = null;
 						}
 					}
 				}
@@ -359,7 +373,7 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 			if (DEBUG) Log.v(TAG, "surfaceChanged:");
 			mPreviewSurface = holder.getSurface();
 			synchronized (mSync) {
-				if (isActive && !isPreview && (mUVCCamera != null)) {
+				if (isActive && !isPreview && (mUVCCamera != null) && mPreviewSurface != null) {
 					mUVCCamera.setPreviewDisplay(mPreviewSurface);
 					mUVCCamera.startPreview();
 					isPreview = true;

@@ -27,7 +27,7 @@
 #define LOCAL_DEBUG 0
 
 #define LOG_TAG "libusb/core"
-#if 1	// デバッグ情報を出さない時1
+#if 0	// デバッグ情報を出さない時1
 	#ifndef LOG_NDEBUG
 		#define	LOG_NDEBUG		// LOGV/LOGD/MARKを出力しない時
 		#endif
@@ -1112,6 +1112,8 @@ void API_EXPORTED libusb_unref_device(libusb_device *dev) {
 			usbi_disconnect_device(dev);
 		}
 
+		list_del(&dev->list);
+
 		usbi_mutex_destroy(&dev->lock);
 		free(dev);
 	}
@@ -1670,6 +1672,8 @@ int API_EXPORTED libusb_release_interface(libusb_device_handle *dev,
 	usbi_dbg("interface %d", interface_number);
 	if (UNLIKELY(interface_number >= USB_MAXINTERFACES))
 		RETURN(LIBUSB_ERROR_INVALID_PARAM, int);
+
+	if(!dev) RETURN(0, int);
 
 	usbi_mutex_lock(&dev->lock);
 	{

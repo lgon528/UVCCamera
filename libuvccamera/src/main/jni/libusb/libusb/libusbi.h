@@ -103,10 +103,14 @@ struct list_head {
 #define list_empty(entry) ((entry)->next == (entry))
 
 static inline void list_init(struct list_head *entry) {
+	if(!entry) return; // avoid nullptr, add by lgon528@gmail.com
+
 	entry->prev = entry->next = entry;
 }
 
 static inline void list_add(struct list_head *entry, struct list_head *head) {
+	if(!entry || !head) return; // avoid nullptr, add by lgon528@gmail.com
+
 	entry->next = head->next;
 	entry->prev = head;
 
@@ -115,6 +119,8 @@ static inline void list_add(struct list_head *entry, struct list_head *head) {
 }
 
 static inline void list_add_tail(struct list_head *entry, struct list_head *head) {
+	if(!entry || !head) return;  // avoid nullptr, add by lgon528@gmail.com
+
 	entry->next = head;
 	entry->prev = head->prev;
 
@@ -123,6 +129,8 @@ static inline void list_add_tail(struct list_head *entry, struct list_head *head
 }
 
 static inline void list_del(struct list_head *entry) {
+	if(!entry) return;  // avoid nullptr, add by lgon528@gmail.com
+	if(!entry->prev || !entry->next) return; // not in list
 	if (!list_empty(entry)) {	// XXX add saki@serenegiant because sometimes crash
 		entry->next->prev = entry->prev;
 		entry->prev->next = entry->next;

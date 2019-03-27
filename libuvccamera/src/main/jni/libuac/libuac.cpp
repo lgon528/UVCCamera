@@ -237,7 +237,7 @@ int UACDevice::open() {
     // open usb device
     auto ret = libusb_open(usbDevice_, &usbDeviceHandle_);
     if(ret != 0) {
-        LOGE("libusb_open failed, %d", ret);
+        LOGE("libusb_open failed, %d(%s)", ret, libusb_error_name(ret));
         return ret;
     }
     libusb_ref_device(usbDevice_);
@@ -280,6 +280,8 @@ int UACDevice::open() {
 }
 
 int UACDevice::close() {
+    if(!usbDevice_ || !usbDeviceHandle_) return 0;
+
     isOpened_ = false;
     isRecording_ = false;
 

@@ -339,7 +339,7 @@ int UVCPreview::startPreview() {
 		}
 		pthread_mutex_unlock(&preview_mutex);
 		if (UNLIKELY(result != EXIT_SUCCESS)) {
-			LOGW("UVCCamera::window does not exist/already running/could not create thread etc.");
+			LOGW("UVCCamera::window does not exist/already running/could not create thread etc. mPreviewWindow %p", mPreviewWindow);
 			mIsRunning = false;
 			pthread_mutex_lock(&preview_mutex);
 			{
