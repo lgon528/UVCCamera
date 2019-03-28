@@ -218,6 +218,9 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 		@Override
 		public void onConnect(final UsbDevice device, final UsbControlBlock ctrlBlock, final boolean createNew) {
 			if (DEBUG) Log.v(TAG, "onConnect:" + device);
+			Log.e(TAG, "we're here, onConnect, " + device);
+			Log.e(TAG, "we're here, onConnect, " + ctrlBlock);
+			Log.e(TAG, "we're here, onConnect, createNew " + createNew);
 
 			synchronized (mSync) {
 				if (mUVCCamera != null) {

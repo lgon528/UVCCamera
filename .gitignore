@@ -72,3 +72,9 @@ libuvccamera/src/main/libs
 .idea/scopes
 .idea/caches
 .idea/codeStyles
+
+.vscode/
+*/.settings
+.settings
+.idea
+.DS_Store

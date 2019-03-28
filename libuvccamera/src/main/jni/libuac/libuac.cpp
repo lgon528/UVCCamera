@@ -6,6 +6,7 @@
 #include "utils.h"
 #include "utilbase.h"
 #include "libusb/libusb/libusb.h"
+#include "libusb/libusb/libusbi.h"
 
 #include <errno.h>    //for error handling
 #include <string>

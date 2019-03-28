@@ -1341,6 +1341,18 @@ public final class USBMonitor {
 				throw new IllegalStateException("already closed");
 			}
 		}
+
+		public String toString() {
+			StringBuilder sb = new StringBuilder();
+			sb.append("UsbControlBlock: [venderId: ").append(getVenderId()).append(",")
+					.append("productId:").append(getProductId()).append(",")
+					.append("fd:").append(getFileDescriptor()).append(",")
+					.append("busNum:").append(getBusNum()).append(",")
+					.append("devNum:").append(getDevNum()).append(",")
+					.append("sn:").append(getSerial()).append("]");
+
+			return sb.toString();
+		}
 	}
 
 }
