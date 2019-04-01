@@ -286,6 +286,8 @@ int UACDevice::close() {
     isOpened_ = false;
     isRecording_ = false;
 
+    streamCallback_.reset();
+
     ctrlIf_->release(usbDeviceHandle_);
     selectedIf_->release(usbDeviceHandle_);
 

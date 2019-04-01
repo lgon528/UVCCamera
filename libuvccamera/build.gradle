@@ -28,10 +28,10 @@ android {
 	compileSdkVersion versionCompiler
 	buildToolsVersion versionBuildTool
 
-//	compileOptions {
-//		sourceCompatibility javaSourceCompatibility
-//		targetCompatibility javaTargetCompatibility
-//	}
+	compileOptions {
+		sourceCompatibility javaSourceCompatibility
+		targetCompatibility javaTargetCompatibility
+	}
 
     defaultConfig {
         minSdkVersion 14
@@ -87,13 +87,18 @@ task ndkClean(type: Exec, description: 'clean JNI libraries') {
 
 clean.dependsOn 'ndkClean'
 
+apply from: '../fat-aar.gradle'
 dependencies {
-    implementation fileTree(dir: new File(buildDir, 'libs'), include: '*.jar')
+	implementation fileTree(dir: new File(buildDir, 'libs'), include: '*.jar')
 
+	implementation "com.android.support:appcompat-v7:${supportLibVersion}"
 	implementation "com.android.support:support-v4:${supportLibVersion}"
 	implementation "com.android.support:support-annotations:${supportLibVersion}"
 
-	implementation("com.serenegiant:common:${commonLibVersion}") {
-		exclude module: 'support-v4'
-	}
+	api project(path: ':common', configuration: 'default')
+//	embedded project(':common')
+//
+//	implementation("com.serenegiant:common:${commonLibVersion}") {
+//		exclude module: 'support-v4'
+//	}
 }

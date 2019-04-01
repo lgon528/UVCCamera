@@ -8,6 +8,8 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/common" />
+            <option value="$PROJECT_DIR$/libusbdevice" />
             <option value="$PROJECT_DIR$/libuvccamera" />
             <option value="$PROJECT_DIR$/usbCameraCommon" />
             <option value="$PROJECT_DIR$/usbCameraTest0" />

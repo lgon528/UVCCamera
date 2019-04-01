@@ -13,6 +13,7 @@ import java.util.List;
 public class UACAudio {
     private static final String TAG = UACAudio.class.getSimpleName();
 
+    private static final boolean DEBUG = false;	// TODO set false when releasing
 
     private static final String DEFAULT_USBFS = "/dev/bus/usb";
 
@@ -126,19 +127,19 @@ public class UACAudio {
     }
 
     public synchronized int getBitResolution() {
-        Log.v(TAG, "getBitResolution");
+        if(DEBUG) Log.v(TAG, "getBitResolution");
 
         return bitResolution;
     }
 
     public synchronized List<Integer> getSupportSampleRates() {
-        Log.v(TAG, "getSupportSampleRate");
+        if(DEBUG) Log.v(TAG, "getSupportSampleRate");
 
         return parseSampleRates(supportedSampleRates);
     }
 
     public synchronized int getSampleRate() {
-        Log.v(TAG, "getSampleRate");
+        if(DEBUG) Log.v(TAG, "getSampleRate");
 
         return sampleRate;
     }
@@ -155,13 +156,13 @@ public class UACAudio {
     }
 
     public synchronized boolean isMuteAvailable() {
-        Log.v(TAG, "isMuteAvailable");
+        if(DEBUG) Log.v(TAG, "isMuteAvailable");
 
         return isMuteAvailable;
     }
     
     public synchronized boolean isMute() {
-        Log.v(TAG, "isMute");
+        if(DEBUG) Log.v(TAG, "isMute");
         return isMute;
     }
 
@@ -177,29 +178,29 @@ public class UACAudio {
     }
 
     public synchronized int getChannelCount() {
-        Log.v(TAG, "getChannelCount");
+        if(DEBUG) Log.v(TAG, "getChannelCount");
 
         return channelCount;
     }
 
     public synchronized boolean isVolumeAvailable() {
-        Log.v(TAG, "isVolumeAvailable");
+        if(DEBUG) Log.v(TAG, "isVolumeAvailable");
 
         return isVolumeAvailable;
     }
 
     public synchronized int getVolume() {
-        Log.v(TAG, "getVolume, " + volume);
+        if(DEBUG) Log.v(TAG, "getVolume, " + volume);
         return volume;
     }
 
     public synchronized int getMinVolume() {
-        Log.v(TAG, "getMinVolume, " + minVolume);
+        if(DEBUG) Log.v(TAG, "getMinVolume, " + minVolume);
         return minVolume;
     }
 
     public synchronized int getMaxVolume() {
-        Log.v(TAG, "getMaxVolume, " + maxVolume);
+        if(DEBUG) Log.v(TAG, "getMaxVolume, " + maxVolume);
         return maxVolume;
     }
 
@@ -237,7 +238,7 @@ public class UACAudio {
 //    }
 
     public synchronized void setAudioStreamCallback(IAudioStreamCallback cb) {
-        Log.v(TAG, "setAudioStreamCallback, cb: " + cb);
+        Log.i(TAG, "setAudioStreamCallback, cb: " + cb);
         nativeSetAudioStreamCallback(nativePtr, cb);
     }
 
