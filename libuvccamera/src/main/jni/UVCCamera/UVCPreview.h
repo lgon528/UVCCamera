@@ -70,6 +70,7 @@ private:
 	ObjectArray<uvc_frame_t *> previewFrames;
 	int previewFormat;
 	size_t previewBytes;
+	bool mIsCustomPreview;
 //
 	volatile bool mIsCapturing;
 	ANativeWindow *mCaptureWindow;
@@ -114,6 +115,7 @@ public:
 	~UVCPreview();
 
 	inline const bool isRunning() const;
+	void enableCustomPreview(bool isCustomPreview);
 	int setPreviewSize(int width, int height, int min_fps, int max_fps, int mode, float bandwidth = 1.0f);
 	int setPreviewDisplay(ANativeWindow *preview_window);
 	int setFrameCallback(JNIEnv *env, jobject frame_callback_obj, int pixel_format);

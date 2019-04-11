@@ -38,6 +38,10 @@ android {
 		targetSdkVersion versionTarget
 		versionCode 8
 		versionName "3.00"
+
+		ndk {
+			abiFilters "armeabi"
+		}
     }
 
     buildTypes {

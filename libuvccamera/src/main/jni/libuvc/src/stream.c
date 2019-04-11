@@ -1586,8 +1586,8 @@ uvc_error_t uvc_stream_start_bandwidth(uvc_stream_handle_t *strmh,
 	/* If the user wants it, set up a thread that calls the user's function
 	 * with the contents of each frame.
 	 */
-	MARK("create callback thread");
 	if LIKELY(cb) {
+		MARK("create callback thread");
 		pthread_create(&strmh->cb_thread, NULL, _uvc_user_caller, (void*) strmh);
 	}
 	MARK("submit transfers");

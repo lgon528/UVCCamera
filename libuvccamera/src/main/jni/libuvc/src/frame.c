@@ -51,6 +51,17 @@
 #include "libuvc/libuvc.h"
 #include "libuvc/libuvc_internal.h"
 
+#if 1	// set 1 if you don't need debug log
+	#ifndef LOG_NDEBUG
+		#define	LOG_NDEBUG		// w/o LOGV/LOGD/MARK
+	#endif
+	#undef USE_LOGALL
+#else
+	#define USE_LOGALL
+	#undef LOG_NDEBUG
+//	#undef NDEBUG
+#endif
+
 #define USE_STRIDE 1
 /** @internal */
 uvc_error_t uvc_ensure_frame_size(uvc_frame_t *frame, size_t need_bytes) {

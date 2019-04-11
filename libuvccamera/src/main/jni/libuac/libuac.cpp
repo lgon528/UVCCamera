@@ -14,6 +14,18 @@
 #include <stdlib.h>
 #include <set>
 
+#define LOG_TAG "libuac"
+#if 1	// デバッグ情報を出さない時1
+	#ifndef LOG_NDEBUG
+		#define	LOG_NDEBUG		// LOGV/LOGD/MARKを出力しない時
+		#endif
+	#undef USE_LOGALL			// 指定したLOGxだけを出力
+#else
+	#define USE_LOGALL
+	#undef LOG_NDEBUG
+	#undef NDEBUG
+#endif
+
 namespace libuac {
 
 int UACContext::init(std::string usbfs) {
@@ -243,10 +255,10 @@ int UACDevice::open() {
     }
     libusb_ref_device(usbDevice_);
 
-    ret = libusb_reset_device(usbDeviceHandle_);
-    if(ret != 0) {
-        LOGE("libusb_reset_device failed, ret %d(%s)", ret, libusb_error_name(ret));
-    }
+    // ret = libusb_reset_device(usbDeviceHandle_);
+    // if(ret != 0) {
+    //     LOGE("libusb_reset_device failed, ret %d(%s)", ret, libusb_error_name(ret));
+    // }
 
     // claim interface
     ctrlIf_->claim(usbDeviceHandle_);
@@ -575,7 +587,7 @@ static void _stream_callback(libusb_transfer *transfer)
         return;
     }
 
-    //printf("do callback\n");
+    //LOGE("we're here, transfer->status %d", transfer->status);
     switch (transfer->status)
     {
         case LIBUSB_TRANSFER_COMPLETED:

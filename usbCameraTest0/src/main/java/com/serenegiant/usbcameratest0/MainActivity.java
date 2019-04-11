@@ -50,6 +50,7 @@ import com.serenegiant.usb.UVCCamera;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -76,6 +77,7 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 	private ByteBuffer byteBuffer;
 	private String filePath;
 
+
 	@Override
 	protected void onCreate(final Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -89,11 +91,11 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 		mUSBMonitor = new USBMonitor(this, mOnDeviceConnectListener);
 
 		//最小缓存区
-		bufferSizeInBytes = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
+		bufferSizeInBytes = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT);
 		byteBuffer = ByteBuffer.allocate(bufferSizeInBytes);
 		byteBuffer.clear();
 		//创建AudioTrack对象   依次传入 :流类型、采样率（与采集的要一致）、音频通道（采集是IN 播放时OUT）、量化位数、最小缓冲区、模式
-		audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,sampleRate,AudioFormat.CHANNEL_OUT_MONO,AudioFormat.ENCODING_PCM_16BIT, bufferSizeInBytes, AudioTrack.MODE_STREAM);
+		audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,sampleRate,AudioFormat.CHANNEL_OUT_STEREO,AudioFormat.ENCODING_PCM_16BIT, bufferSizeInBytes, AudioTrack.MODE_STREAM);
 	}
 
 	@Override
@@ -241,17 +243,45 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 								return;
 							}
 							Log.e(TAG, "we're here, device: " + audio);
+
+
+							filePath = Environment.getExternalStorageDirectory().getPath() + "/justfortest/" + System.currentTimeMillis()+".pcm";
+							File file = new File(filePath);
+							if(!file.exists()) {
+								try {
+									file.createNewFile();
+								} catch (IOException e) {
+									e.printStackTrace();
+								}
+							}
+
 							audioTrack.play();
 							audio.setAudioStreamCallback(new IAudioStreamCallback() {
 								@Override
 								public void onStreaming(byte[] data) {
 //									Log.i(TAG, "onStreaming, size: " + data.length);
 //									Log.i(TAG, "onStreaming, content: " + byte2hex(data));
-//									byte[] frame = data;
-									byte[] frame = stereo2mono(data);
+									final byte[] frame = data;
+//									final byte[] frame = stereo2mono(data);
 //									Log.i(TAG, "onStreaming, frame: " + byte2hex(frame));
 
 									audioTrack.write(frame, 0, frame.length);
+
+									queueEvent(new Runnable() {
+										@Override
+										public void run() {
+											try {
+												File file = new File(filePath);
+												FileOutputStream fos = new FileOutputStream(file, true);
+												fos.write(frame);
+												fos.close();
+											} catch (FileNotFoundException e) {
+												e.printStackTrace();
+											} catch (IOException e) {
+												e.printStackTrace();
+											}
+										}
+									}, 0);
 								}
 							});
 
@@ -289,18 +319,6 @@ public class MainActivity extends BaseActivity implements CameraDialog.CameraDia
 						synchronized (mSync) {
 							mUVCCamera = camera;
 						}
-
-
-						filePath = Environment.getExternalStorageDirectory().getPath() + "/justfortest/" + System.currentTimeMillis();
-						File file = new File(filePath);
-						if(!file.exists()) {
-							try {
-								file.createNewFile();
-							} catch (IOException e) {
-								e.printStackTrace();
-							}
-						}
-
 
 
 

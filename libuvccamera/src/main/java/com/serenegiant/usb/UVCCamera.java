@@ -188,6 +188,8 @@ public class UVCCamera {
 	}
 
 	public synchronized boolean isUVCDevice() {
+    	if(mCtrlBlock == null) return false;
+
     	return nativeIsUVCDevice(mNativePtr,
 				mCtrlBlock.getVenderId(),
 				mCtrlBlock.getProductId(),
@@ -1083,6 +1085,18 @@ public class UVCCamera {
     		nativeSetCaptureDisplay(mNativePtr, null);
     	}
     }
+
+	/**
+	 * whether turn on custom rendering
+	 * @param isCustomPreview true - custom rendering， false - rendering by libuvccamera
+	 */
+	public void enableCustomPreview(boolean isCustomPreview) {
+    	if(mCtrlBlock != null) {
+    		nativeEnableCustomPreview(mNativePtr, isCustomPreview);
+		}
+	}
+
+
     private static final native int nativeSetCaptureDisplay(final long id_camera, final Surface surface);
 
     private static final native long nativeGetCtrlSupports(final long id_camera);
@@ -1241,4 +1255,5 @@ public class UVCCamera {
     private static final native int nativeGetPrivacy(final long id_camera);
 
     private static final native boolean nativeIsUVCDevice(long id_camera, int vid, int pid, int fd, int busnum, int devaddr, String sn, String usbfs);
+    private static final native void nativeEnableCustomPreview(long id_camera, boolean isCustomPreview);
 }

@@ -63,6 +63,7 @@ UVCPreview::UVCPreview(uvc_device_handle_t *devh)
 	previewBytes(DEFAULT_PREVIEW_WIDTH * DEFAULT_PREVIEW_HEIGHT * PREVIEW_PIXEL_BYTES),
 	previewFormat(WINDOW_FORMAT_RGBA_8888),
 	mIsRunning(false),
+	mIsCustomPreview(false),
 	mIsCapturing(false),
 	captureQueu(NULL),
 	mFrameCallbackObj(NULL),
@@ -98,6 +99,10 @@ UVCPreview::~UVCPreview() {
 	pthread_cond_destroy(&capture_sync);
 	pthread_mutex_destroy(&pool_mutex);
 	EXIT();
+}
+
+void UVCPreview::enableCustomPreview(bool isCustomPreview) {
+    mIsCustomPreview = isCustomPreview;
 }
 
 /**
@@ -533,8 +538,12 @@ void UVCPreview::do_preview(uvc_stream_ctrl_t *ctrl) {
 					result = uvc_mjpeg2yuyv(frame_mjpeg, frame);   // MJPEG => yuyv
 					recycle_frame(frame_mjpeg);
 					if (LIKELY(!result)) {
-						frame = draw_preview_one(frame, &mPreviewWindow, uvc_any2rgbx, 4);
-						addCaptureFrame(frame);
+						if(LIKELY(mIsCustomPreview)){
+							addCaptureFrame(frame);
+						} else {
+							frame = draw_preview_one(frame, &mPreviewWindow, uvc_any2rgbx, 4);
+							addCaptureFrame(frame);
+						}
 					} else {
 						recycle_frame(frame);
 					}
@@ -545,8 +554,12 @@ void UVCPreview::do_preview(uvc_stream_ctrl_t *ctrl) {
 			for ( ; LIKELY(isRunning()) ; ) {
 				frame = waitPreviewFrame();
 				if (LIKELY(frame)) {
-					frame = draw_preview_one(frame, &mPreviewWindow, uvc_any2rgbx, 4);
-					addCaptureFrame(frame);
+					if(LIKELY(mIsCustomPreview)){
+						addCaptureFrame(frame);
+					} else {
+						frame = draw_preview_one(frame, &mPreviewWindow, uvc_any2rgbx, 4);
+						addCaptureFrame(frame);
+					}
 				}
 			}
 		}

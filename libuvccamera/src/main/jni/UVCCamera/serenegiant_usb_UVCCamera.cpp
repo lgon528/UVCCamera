@@ -2013,6 +2013,15 @@ static jboolean nativeIsUVCDevice(JNIEnv *env, jobject thiz,
 	RETURN(result, jboolean);
 }
 
+static void nativeEnableCustomPreview(JNIEnv *env, jobject thiz, ID_TYPE id_camera, jboolean isCustomPreview) {
+
+	ENTER();
+	UVCCamera *camera = reinterpret_cast<UVCCamera *>(id_camera);
+	if(LIKELY(camera)) {
+	    camera->enableCustomPreview(isCustomPreview);
+	}
+	EXIT();
+}
 //**********************************************************************
 //
 //**********************************************************************
@@ -2211,6 +2220,7 @@ static JNINativeMethod methods[] = {
 	{ "nativeGetPrivacy",				"(J)I", (void *) nativeGetPrivacy },
 
 	{ "nativeIsUVCDevice",              "(JIIIIILjava/lang/String;Ljava/lang/String;)Z", (void*) nativeIsUVCDevice },
+	{ "nativeEnableCustomPreview",      "(JZ)V", (void*) nativeEnableCustomPreview },
 };
 
 int register_uvccamera(JNIEnv *env) {

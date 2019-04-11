@@ -306,6 +306,16 @@ char *UVCCamera::getSupportedSize() {
 	RETURN(NULL, char *);
 }
 
+void UVCCamera::enableCustomPreview(bool isCustomPreview) {
+    ENTER();
+
+    if(mPreview) {
+        mPreview->enableCustomPreview(isCustomPreview);
+    }
+
+    EXIT();
+}
+
 int UVCCamera::setPreviewSize(int width, int height, int min_fps, int max_fps, int mode, float bandwidth) {
 	ENTER();
 	int result = EXIT_FAILURE;
